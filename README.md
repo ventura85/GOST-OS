@@ -4,6 +4,10 @@
 
 
 <p align="center">
+  <em>Gostynin's Operating System</em>
+</p>
+
+<p align="center">
   <a href="#"><img src="https://img.shields.io/badge/status-wczesna%20alfa-orange" alt="Status"></a>
   <a href="#"><img src="https://img.shields.io/badge/wersja-0.1.0-blue" alt="Wersja"></a>
   <a href="#"><img src="https://img.shields.io/badge/licencja-MIT-green" alt="Licencja"></a>
