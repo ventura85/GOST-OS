@@ -2,11 +2,6 @@
   <img src="./assets/logo.png" alt="GOST OS Logo" width="250"/>
 </p>
 
-<h1 align="center">GOST OS</h1>
-
-<p align="center">
-  <em>Gostynin's Operating System</em>
-</p>
 
 <p align="center">
   <a href="#"><img src="https://img.shields.io/badge/status-wczesna%20alfa-orange" alt="Status"></a>
