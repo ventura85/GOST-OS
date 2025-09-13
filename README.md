@@ -1,7 +1,8 @@
 <p align="center">
-  <img src="./assets/logo.png" alt="GOST OS Logo" width="250"/>
+  <img src="./zasoby/branding/logo.png" alt="GOST OS Logo" width="250"/>
 </p>
 
+<h1 align="center">GOST OS</h1>
 
 <p align="center">
   <em>Gostynin's Operating System</em>
@@ -50,10 +51,10 @@ GOST OS opiera się na czterech filarach, które definiują każde nasze działa
 Aktualnie znajdujemy się w pierwszej fazie rozwoju projektu.
 
 -   [x] **Faza 0: Fundamenty** - Konfiguracja projektu, repozytorium i planowanie.
--   [ ] **Faza 1 (Alfa):** Stworzenie działającego obrazu ISO z bazą Debian+XFCE i niestandardowym pulpitem.
+-   [x] **Faza 1 (Alfa):** Prototypowanie i konfiguracja wyglądu pulpitu.
 -   [ ] **Faza 2 (Beta):** Integracja instalatora Calamares, Asystenta AI i Partycji Ratunkowej.
 -   [ ] **Faza 3 (Stabilna 1.0 "Gostynin"):** Finalne testy, poprawki i publiczne udostępnienie.
 
 ---
 
-**Projekt GOST OS jest na bardzo wczesnym etapie rozwoju. Zapraszamy do obserwowania naszych postępów!**
+**Projekt GOST OS jest na bardzo wczesnym etapie rozwoju. Zapraszamy do obserwowania postępów!**
