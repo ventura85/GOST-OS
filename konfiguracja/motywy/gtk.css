@@ -1,0 +1,20 @@
+/* =================================================================== */
+/* Kompletna poprawka dla czytelności ikon pulpitu XFCE (tekst i tło) */
+/* =================================================================== */
+
+/* Krok 1: Ustawienie ciemnego, czytelnego koloru dla SAMEGO TEKSTU, */
+/* gdy ikona jest zaznaczona lub najechana. */
+XfdesktopIconView.view:selected .label,
+XfdesktopIconView.view:active .label,
+XfdesktopIconView.view:hover .label {
+    color: #2e3436; /* Ciemnoszary, czytelny tekst */
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8); /* Subtelny jasny cień dla lepszego kontrastu */
+}
+
+/* Krok 2: Zmiana TŁA, które pojawia się za całą ikoną (obrazkiem i tekstem) */
+/* po jej zaznaczeniu lub najechaniu. To jest kluczowa część poprawki. */
+XfdesktopIconView.view:selected,
+XfdesktopIconView.view:active,
+XfdesktopIconView.view:hover {
+    background-color: rgba(46, 52, 54, 0.5); /* Ciemne, półprzezroczyste tło dla kontrastu */
+}

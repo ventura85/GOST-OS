@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Kosz
+Comment=
+Exec=thunar trash:///
+Icon=user-trash
+Path=
+Terminal=false
+StartupNotify=false

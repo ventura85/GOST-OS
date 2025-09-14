@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Moje Dokumenty
+Comment=
+Exec=thunar /home/kamil
+Icon=folder-documents
+Path=
+Terminal=false
+StartupNotify=false
