@@ -1,15 +1,11 @@
 #!/bin/bash
-# Wersja 3.0 - Skrypt instalujący motywy z lokalnych zasobów projektu GOST OS
+# Wersja 4.0 - Skrypt instalujący motywy z lokalnych zasobów projektu
+# WAŻNE: Ten skrypt należy uruchomić z głównego folderu projektu GOST-OS!
 
 echo ">>> Instalowanie motywu okien WhiteSur z lokalnych zasobów..."
-# Zakładamy, że skrypt jest w folderze 'skrypty'
-cd ../zasoby/themes/WhiteSur-gtk-theme
-sudo ./install.sh -t green -l
-cd ../../../skrypty/ # Wróć do folderu ze skryptami
+sudo ./zasoby/WhiteSur-gtk-theme/install.sh -t green -l
 
 echo ">>> Instalowanie ikon Win10Sur z lokalnych zasobów..."
-cd ../zasoby/icons/Win10Sur-icon-theme
-./install.sh -a
-cd ../../../skrypty/ # Wróć do folderu ze skryptami
+./zasoby/Win10Sur-icon-theme/install.sh -a
 
 echo ">>> Motywy zostały zainstalowane z lokalnego repozytorium."
