@@ -82,10 +82,18 @@
       <property name="favorites" type="array">
       </property>
       <property name="recent" type="array">
+        <value type="string" value="xfce4-terminal.desktop"/>
         <value type="string" value="org.bluesabre.Mugshot.desktop"/>
       </property>
       <property name="menu-width" type="int" value="471"/>
       <property name="menu-opacity" type="int" value="100"/>
+      <property name="launcher-icon-size" type="int" value="2"/>
+      <property name="category-icon-size" type="int" value="2"/>
+      <property name="profile-shape" type="int" value="0"/>
+      <property name="button-single-row" type="bool" value="false"/>
+      <property name="position-profile-alternate" type="bool" value="false"/>
+      <property name="default-category" type="int" value="0"/>
+      <property name="sort-categories" type="bool" value="true"/>
     </property>
   </property>
 </channel>
