@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.1
+Type=Application
+Name=Wskazania czujników
+GenericName=Podgląd wskazań czujników
+NoDisplay=true
+Comment=Wyświetla wskazania czujników sprzętowych
+Icon=xfce-sensors
+Exec=xfce4-sensors
+Actions=
+Categories=Monitor;System;Utility;X-XFCE;
+StartupNotify=true

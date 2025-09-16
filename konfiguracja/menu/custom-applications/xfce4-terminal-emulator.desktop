@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.1
+Type=Application
+Name=Emulator terminala
+NoDisplay=true
+Comment=Wprowadza i wykonuje wiersze poleceń
+Icon=org.xfce.terminalemulator
+OnlyShowIn=XFCE;
+Exec=exo-open --launch TerminalEmulator
+Actions=
+Categories=Utility;X-XFCE;X-Xfce-Toplevel;
+Keywords=terminal;wiersz poleceń;powłoka;konsola;xfce;
+StartupNotify=true

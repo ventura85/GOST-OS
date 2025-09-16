@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE Menu
+  PUBLIC '-//freedesktop//DTD Menu 1.0//EN'
+  'http://standards.freedesktop.org/menu-spec/menu-1.0.dtd'>
+<Menu>
+	<Name>Xfce</Name>
+	<DefaultAppDirs />
+	<DefaultDirectoryDirs />
+	<DefaultMergeDirs />
+	<Include>
+		<Category>X-Xfce-Toplevel</Category>
+	</Include>
+	<MergeFile type="parent">/etc/xdg/menus/xfce-applications.menu</MergeFile>
+	<Menu>
+		<Name>menulibre-nowy-katalog</Name>
+		<Directory>menulibre-nowy-katalog.directory</Directory>
+		<DirectoryDir>/home/kamil/.local/share/desktop-directories</DirectoryDir>
+		<Include>
+			<Filename>menulibre-nowy-aktywator.desktop</Filename>
+		</Include>
+		<Layout>
+			<Merge type="menus" />
+			<Filename>menulibre-nowy-aktywator.desktop</Filename>
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Menu>
+		<Name>menulibre-moje-dokumenty</Name>
+		<Directory>menulibre-moje-dokumenty.directory</Directory>
+		<DirectoryDir>/home/kamil/.local/share/desktop-directories</DirectoryDir>
+		<Include>
+			<Filename>menulibre-nowy-aktywator2.desktop</Filename>
+		</Include>
+		<Include>
+			<Filename>menulibre-nowy-aktywator3.desktop</Filename>
+		</Include>
+		<Include>
+			<Filename>menulibre-nowy-aktywator4.desktop</Filename>
+		</Include>
+		<Include>
+			<Filename>menulibre-nowy-aktywator1.desktop</Filename>
+		</Include>
+		<Layout>
+			<Merge type="menus" />
+			<Filename>menulibre-nowy-aktywator2.desktop</Filename>
+			<Filename>menulibre-nowy-aktywator3.desktop</Filename>
+			<Filename>menulibre-nowy-aktywator4.desktop</Filename>
+			<Filename>menulibre-nowy-aktywator1.desktop</Filename>
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Menu>
+		<Name>Settings</Name>
+		<Directory>xfce-settings.directory</Directory>
+		<DirectoryDir>/home/kamil/.local/share/desktop-directories</DirectoryDir>
+		<Menu>
+			<Name>Screensavers</Name>
+			<Directory>xfce-screensavers.directory</Directory>
+			<Layout>
+				<Merge type="menus" />
+				<Merge type="files" />
+			</Layout>
+		</Menu>
+		<Layout>
+			<Merge type="menus" />
+			<Filename>xfce-settings-manager.desktop</Filename>
+			<Separator />
+			<Filename>xfce4-mime-settings.desktop</Filename>
+			<Filename>menulibre.desktop</Filename>
+			<Filename>xfce4-settings-editor.desktop</Filename>
+			<Filename>xfce-display-settings.desktop</Filename>
+			<Filename>xfce-keyboard-settings.desktop</Filename>
+			<Filename>xfce-wm-settings.desktop</Filename>
+			<Filename>xfce4-power-manager-settings.desktop</Filename>
+			<Filename>xfce-mouse-settings.desktop</Filename>
+			<Filename>thunar-volman-settings.desktop</Filename>
+			<Filename>xfce-workspaces-settings.desktop</Filename>
+			<Filename>panel-preferences.desktop</Filename>
+			<Filename>xfce4-notifyd-config.desktop</Filename>
+			<Filename>thunar-settings.desktop</Filename>
+			<Filename>xfce4-color-settings.desktop</Filename>
+			<Filename>xfce-backdrop-settings.desktop</Filename>
+			<Filename>xfce-session-settings.desktop</Filename>
+			<Filename>org.pulseaudio.pavucontrol.desktop</Filename>
+			<Filename>xfce4-accessibility-settings.desktop</Filename>
+			<Filename>xfce-wmtweaks-settings.desktop</Filename>
+			<Filename>org.xfce.mousepad-settings.desktop</Filename>
+			<Filename>lightdm-gtk-greeter-settings.desktop</Filename>
+			<Filename>xfce4-clipman-settings.desktop</Filename>
+			<Filename>xfce4-terminal-settings.desktop</Filename>
+			<Menuname>Screensavers</Menuname>
+			<Filename>xfce-ui-settings.desktop</Filename>
+			<Filename>org.bluesabre.Mugshot.desktop</Filename>
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Menu>
+		<Name>Accessories</Name>
+		<Directory>xfce-accessories.directory</Directory>
+		<DirectoryDir>/home/kamil/.local/share/desktop-directories</DirectoryDir>
+		<Layout>
+			<Merge type="menus" />
+			<Filename>menulibre.desktop</Filename>
+			<Filename>xfce4-terminal-emulator.desktop</Filename>
+			<Filename>xfce4-file-manager.desktop</Filename>
+			<Filename>thunar.desktop</Filename>
+			<Filename>xfce4-clipman.desktop</Filename>
+			<Filename>xfce4-taskmanager.desktop</Filename>
+			<Filename>org.xfce.mousepad.desktop</Filename>
+			<Filename>xfce4-notes.desktop</Filename>
+			<Filename>xfce4-about.desktop</Filename>
+			<Filename>xfce4-screenshooter.desktop</Filename>
+			<Filename>xfce4-run.desktop</Filename>
+			<Filename>lightdm-gtk-greeter-settings.desktop</Filename>
+			<Filename>thunar-bulk-rename.desktop</Filename>
+			<Filename>xfce4-sensors.desktop</Filename>
+			<Filename>xfce4-appfinder.desktop</Filename>
+			<Filename>xarchiver.desktop</Filename>
+			<Filename>xfburn.desktop</Filename>
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Menu>
+		<Name>Office</Name>
+		<Directory>xfce-office.directory</Directory>
+		<Layout>
+			<Merge type="menus" />
+			<Filename>xfce4-dict.desktop</Filename>
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Menu>
+		<Name>Education</Name>
+		<Directory>xfce-education.directory</Directory>
+		<DirectoryDir>/home/kamil/.local/share/desktop-directories</DirectoryDir>
+		<Layout>
+			<Merge type="menus" />
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Menu>
+		<Name>Graphics</Name>
+		<Directory>xfce-graphics.directory</Directory>
+		<DirectoryDir>/home/kamil/.local/share/desktop-directories</DirectoryDir>
+		<Layout>
+			<Merge type="menus" />
+			<Filename>org.xfce.ristretto.desktop</Filename>
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Menu>
+		<Name>Games</Name>
+		<Directory>xfce-games.directory</Directory>
+		<DirectoryDir>/home/kamil/.local/share/desktop-directories</DirectoryDir>
+		<Layout>
+			<Merge type="menus" />
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Menu>
+		<Name>Other</Name>
+		<Directory>xfce-other.directory</Directory>
+		<DirectoryDir>/home/kamil/.local/share/desktop-directories</DirectoryDir>
+		<Include>
+			<Filename>panel-desktop-handler.desktop</Filename>
+		</Include>
+		<Layout>
+			<Merge type="menus" />
+			<Filename>panel-desktop-handler.desktop</Filename>
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Menu>
+		<Name>Network</Name>
+		<Directory>xfce-network.directory</Directory>
+		<DirectoryDir>/home/kamil/.local/share/desktop-directories</DirectoryDir>
+		<Layout>
+			<Merge type="menus" />
+			<Filename>xfce4-mail-reader.desktop</Filename>
+			<Filename>xfce4-web-browser.desktop</Filename>
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Menu>
+		<Name>Multimedia</Name>
+		<Directory>xfce-multimedia.directory</Directory>
+		<DirectoryDir>/home/kamil/.local/share/desktop-directories</DirectoryDir>
+		<Layout>
+			<Merge type="menus" />
+			<Filename>org.pulseaudio.pavucontrol.desktop</Filename>
+			<Filename>xfburn.desktop</Filename>
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Menu>
+		<Name>Science</Name>
+		<Directory>xfce-science.directory</Directory>
+		<DirectoryDir>/home/kamil/.local/share/desktop-directories</DirectoryDir>
+		<Layout>
+			<Merge type="menus" />
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Menu>
+		<Name>Development</Name>
+		<Directory>xfce-development.directory</Directory>
+		<DirectoryDir>/home/kamil/.local/share/desktop-directories</DirectoryDir>
+		<Layout>
+			<Merge type="menus" />
+			<Filename>python3.13.desktop</Filename>
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Menu>
+		<Name>System</Name>
+		<Directory>xfce-system.directory</Directory>
+		<DirectoryDir>/home/kamil/.local/share/desktop-directories</DirectoryDir>
+		<Layout>
+			<Merge type="menus" />
+			<Filename>thunar.desktop</Filename>
+			<Filename>xfce4-taskmanager.desktop</Filename>
+			<Filename>xfce4-terminal.desktop</Filename>
+			<Filename>lightdm-gtk-greeter-settings.desktop</Filename>
+			<Filename>debian-uxterm.desktop</Filename>
+			<Filename>xfce4-sensors.desktop</Filename>
+			<Filename>xfce4-session-logout.desktop</Filename>
+			<Filename>debian-xterm.desktop</Filename>
+			<Merge type="files" />
+		</Layout>
+	</Menu>
+	<Layout>
+		<Menuname>menulibre-nowy-katalog</Menuname>
+		<Menuname>menulibre-moje-dokumenty</Menuname>
+		<Filename>xfce4-run.desktop</Filename>
+		<Separator />
+		<Filename>xfce4-terminal-emulator.desktop</Filename>
+		<Filename>xfce4-file-manager.desktop</Filename>
+		<Filename>xfce4-mail-reader.desktop</Filename>
+		<Filename>xfce4-web-browser.desktop</Filename>
+		<Separator />
+		<Separator />
+		<Separator />
+		<Menuname>Settings</Menuname>
+		<Separator />
+		<Menuname>Accessories</Menuname>
+		<Menuname>Office</Menuname>
+		<Menuname>Education</Menuname>
+		<Menuname>Graphics</Menuname>
+		<Menuname>Games</Menuname>
+		<Menuname>Other</Menuname>
+		<Menuname>Network</Menuname>
+		<Menuname>Multimedia</Menuname>
+		<Menuname>Science</Menuname>
+		<Menuname>Development</Menuname>
+		<Menuname>System</Menuname>
+		<Separator />
+		<Filename>xfce4-about.desktop</Filename>
+		<Filename>xfce4-session-logout.desktop</Filename>
+		<Filename>menulibre-nowy-aktywator1.desktop</Filename>
+		<Filename>menulibre-nowy-aktywator.desktop</Filename>
+		<Filename>menulibre-nowy-aktywator2.desktop</Filename>
+	</Layout>
+</Menu>

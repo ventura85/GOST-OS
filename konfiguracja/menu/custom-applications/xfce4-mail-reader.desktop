@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.1
+Type=Application
+Name=Czytnik poczty
+NoDisplay=true
+Comment=Odbiera i wysyła pocztę elektroniczną
+Icon=org.xfce.mailreader
+OnlyShowIn=XFCE;
+Exec=exo-open --launch MailReader %u
+Actions=
+Categories=Network;X-XFCE;X-Xfce-Toplevel;
+Keywords=e-mail;poczta;skrzynka odbiorcza;wiadomość;komunikacja;
+StartupNotify=true

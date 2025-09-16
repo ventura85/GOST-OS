@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.1
+Type=Application
+Name=Moja muzyka
+Comment=Uzyskaj dostęp do swojej biblioteki plików muzycznych.
+Icon=folder-music
+Exec=thunar /home/kamil/Muzyka
+Actions=
+Categories=menulibre-moje-dokumenty;

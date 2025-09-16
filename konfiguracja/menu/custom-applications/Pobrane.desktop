@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.1
+Type=Application
+Name=Pobrane
+Comment=Otwórz folder z plikami pobranymi z internetu.
+Icon=default-folder-download
+Exec=thunar /home/kamil/Pobrane
+Actions=
+Categories=menulibre-moje-dokumenty;

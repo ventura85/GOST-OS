@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.1
+Type=Application
+Name=Dokumenty
+Comment=Przeglądaj i zarządzaj plikami w swoim folderze osobistym.
+Icon=default-folder-documents
+Exec=thunar /home/kamil/Dokumenty
+Actions=
+Categories=X-XFCE;X-Xfce-Toplevel;menulibre-moje-dokumenty;

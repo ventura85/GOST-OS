@@ -12,7 +12,7 @@
       <property name="icon-size" type="uint" value="0"/>
       <property name="size" type="uint" value="34"/>
       <property name="plugin-ids" type="array">
-        <value type="int" value="1"/>
+        <value type="int" value="5"/>
         <value type="int" value="2"/>
         <value type="int" value="3"/>
         <value type="int" value="6"/>
@@ -39,13 +39,6 @@
     </property>
   </property>
   <property name="plugins" type="empty">
-    <property name="plugin-1" type="string" value="applicationsmenu">
-      <property name="show-button-title" type="bool" value="false"/>
-      <property name="show-menu-icons" type="bool" value="true"/>
-      <property name="custom-menu" type="bool" value="false"/>
-      <property name="button-icon" type="string" value="gostos-start"/>
-      <property name="button-title" type="string" value="Menu"/>
-    </property>
     <property name="plugin-2" type="string" value="launcher">
       <property name="items" type="array">
         <value type="string" value="17575739191.desktop"/>
@@ -75,6 +68,24 @@
     </property>
     <property name="plugin-11" type="string" value="pulseaudio">
       <property name="enable-keyboard-shortcuts" type="bool" value="true"/>
+    </property>
+    <property name="plugin-5" type="string" value="whiskermenu">
+      <property name="button-icon" type="string" value="gostos-start"/>
+      <property name="view-mode" type="int" value="1"/>
+      <property name="position-categories-alternate" type="bool" value="true"/>
+      <property name="position-search-alternate" type="bool" value="true"/>
+      <property name="position-commands-alternate" type="bool" value="true"/>
+      <property name="show-command-lockscreen" type="bool" value="false"/>
+      <property name="show-command-settings" type="bool" value="false"/>
+      <property name="show-command-restart" type="bool" value="false"/>
+      <property name="show-command-logoutuser" type="bool" value="false"/>
+      <property name="favorites" type="array">
+      </property>
+      <property name="recent" type="array">
+        <value type="string" value="org.bluesabre.Mugshot.desktop"/>
+      </property>
+      <property name="menu-width" type="int" value="471"/>
+      <property name="menu-opacity" type="int" value="100"/>
     </property>
   </property>
 </channel>

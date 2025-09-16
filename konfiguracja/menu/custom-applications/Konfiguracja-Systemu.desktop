@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.1
+Type=Application
+Name=Konfiguracja Systemu
+Comment=Zarządzaj ustawieniami systemu, wyglądem i urządzeniami.
+Icon=control-center2
+Exec=xfce4-settings-manager
+Actions=
+Categories=X-XFCE;X-Xfce-Toplevel;menulibre-nowy-katalog;
