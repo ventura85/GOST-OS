@@ -1,5 +1,7 @@
 #!/bin/bash
-# Wersja 1.4 - Skrypt instalujący pakiety dla pulpitu i ekranu logowania
+# Wersja 1.5 - Skrypt instalujący pakiety dla pulpitu i ekranu logowania
+
+apt-get update 
 
 echo ">>> Instalowanie podstawowych narzędzi..."
 sudo apt install -y git sudo
