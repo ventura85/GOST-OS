@@ -16,30 +16,24 @@ jobs:
     - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y live-build
+        sudo apt-get install -y live-build rsync
 
-    - name: Prepare live-build config
+    - name: Prepare and Run Build
       run: |
-        # Tworzymy folder roboczy OBOK folderu z kodem, aby uniknąć błędu kopiowania
-        mkdir ../live-build-project
-        cd ../live-build-project
+        # Krok 1: Stwórz folder roboczy wewnątrz folderu projektu
+        mkdir gost-os-build
+        cd gost-os-build
 
-        # Inicjalizujemy konfigurację
+        # Krok 2: Zainicjuj konfigurację live-build
         lb config \
         --distribution trixie \
         --architectures amd64 \
-        --archive-areas "main contrib non-free non-free-firmware"
+        --archive-areas "main contrib non-free non-free-firmware" \
+        --mirror-bootstrap http://deb.debian.org/debian/ \
+        --mirror-chroot http://deb.debian.org/debian/ \
+        --mirror-chroot-security http://security.debian.org/debian-security/
         
-        # BRUTALNA POPRAWKA: Tworzymy własny, idealny plik sources.list,
-        # aby zmusić live-build do używania tylko serwerów Debiana.
-        mkdir -p config/archives
-        cat > config/archives/gostos.list.chroot <<'EOF'
-        deb http://deb.debian.org/debian/ trixie main contrib non-free non-free-firmware
-        deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
-        deb http://deb.debian.org/debian/ trixie-updates main contrib non-free non-free-firmware
-        EOF
-        
-        # Tworzymy listę pakietów (zawiera wszystkie nasze poprawki)
+        # Krok 3: Stwórz listę pakietów
         cat > config/package-lists/gostos.list.chroot <<'EOF'
         git
         sudo
@@ -63,15 +57,20 @@ jobs:
         systemd-sysv
         EOF
         
-        # Kopiujemy pliki projektu (z folderu ${{ github.workspace }}) do nakładki
-        mkdir -p config/includes.chroot/opt/gostos-setup/GOST-OS
-        cp -r ${{ github.workspace }}/* config/includes.chroot/opt/gostos-setup/GOST-OS
+        # Krok 4: Stwórz nakładkę z plikami projektu używając rsync
+        mkdir -p config/includes.chroot/opt/gostos-setup
+        # Używamy rsync do bezpiecznego kopiowania, z wykluczeniem samego siebie
+        rsync -a --exclude 'gost-os-build' ../* config/includes.chroot/opt/gostos-setup/
         
-        # Tworzymy skrypt 'hak'
+        # Krok 5: Stwórz skrypt 'hak'
         mkdir -p config/hooks/chroot
         cat > config/hooks/chroot/gostos-setup.hook.chroot <<'EOF'
         #!/bin/bash
-        cd /opt/gostos-setup/GOST-OS/skrypty
+        set -e
+        cd /opt/gostos-setup/skrypty
+        chmod +x *.sh
+        chmod +x ../zasoby/WhiteSur-gtk-theme/install.sh
+        chmod +x ../zasoby/Win10Sur-icon-theme/install.sh
         ./01-instalacja-pakietow.sh
         ./02-instalacja-motywow.sh
         ./03-kopiowanie-konfiguracji.sh
@@ -79,9 +78,7 @@ jobs:
         EOF
         chmod +x config/hooks/chroot/gostos-setup.hook.chroot
 
-    - name: Run live-build
-      run: |
-        cd ../live-build-project
+        # Krok 6: Uruchom budowanie
         sudo lb build 2>&1 | tee build.log
 
     - name: Upload ISO and Logs as artifact
@@ -89,7 +86,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: gost-os-build-output
-        # Ścieżka jest teraz poprawna względem głównego folderu roboczego
         path: |
-          live-build-project/live-image-amd64.hybrid.iso
-          live-build-project/build.log
+          gost-os-build/live-image-amd64.hybrid.iso
+          gost-os-build/build.log
