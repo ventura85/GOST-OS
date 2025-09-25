@@ -6,22 +6,23 @@ echo ">>> Instalowanie motywów..."
 
 # Sprawdzamy, czy katalog z motywem GTK istnieje
 if [ -d "/zasoby/WhiteSur-gtk-theme" ]; then
-    echo "--> Instalowanie motywu WhiteSur GTK..."
-    # OSTATECZNA POPRAWKA: Nadajemy uprawnienia tuż przed uruchomieniem
+    echo "--> Modyfikowanie i instalowanie motywu WhiteSur GTK..."
+    # OSTATECZNA POPRAWKA: Usuwamy 'sudo' ze skryptu instalacyjnego
+    sed -i 's/sudo //g' /zasoby/WhiteSur-gtk-theme/install.sh
+    
     chmod +x /zasoby/WhiteSur-gtk-theme/install.sh
     /zasoby/WhiteSur-gtk-theme/install.sh -t green -l
 else
-    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu WhiteSur GTK."
+    echo "--> Ostrzeżenie: Nie znaleziono motywu WhiteSur GTK."
 fi
 
 # Sprawdzamy, czy katalog z motywem ikon istnieje
 if [ -d "/zasoby/Win10Sur-icon-theme" ]; then
     echo "--> Instalowanie motywu ikon Win10Sur..."
-    # OSTATECZNA POPRAWKA: Nadajemy uprawnienia tuż przed uruchomieniem
     chmod +x /zasoby/Win10Sur-icon-theme/install.sh
     /zasoby/Win10Sur-icon-theme/install.sh -a
 else
-    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu ikon Win10Sur."
+    echo "--> Ostrzeżenie: Nie znaleziono motywu ikon Win10Sur."
 fi
 
 echo ">>> Kopiowanie domyślnej konfiguracji użytkownika..."

@@ -1,4 +1,4 @@
-# Pakiety Systemowe i Live
+# --- Pakiety Systemowe i Live ---
 git
 sudo
 live-boot
@@ -7,7 +7,7 @@ live-tools
 linux-image-amd64
 systemd-sysv
 
-# Środowisko Graficzne i Aplikacje
+# --- Środowisko Graficzne i Aplikacje ---
 xfce4
 xfce4-goodies
 menulibre
@@ -15,12 +15,12 @@ mugshot
 lightdm
 lightdm-gtk-greeter-settings
 
-# Zależności i Sterowniki
+# --- Zależności i Sterowniki ---
 gtk2-engines-murrine
 virtualbox-guest-utils
 virtualbox-guest-x11
 
-# Zależności wymagane przez skrypty instalacyjne motywów
+# --- Zależności wymagane przez skrypty instalacyjne motywów ---
 sassc
 libglib2.0-dev
 libxml2-utils
