@@ -13,103 +13,43 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install Dependencies
+    - name: Build ISO inside Debian Docker Container
       run: |
-        sudo apt-get update
-        sudo apt-get install -y debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools
+        # Uruchamiamy kontener z oficjalnego obrazu Debian 13 "Trixie"
+        # Montujemy nasz projekt do folderu /gost-os-project wewnątrz kontenera
+        docker run \
+          --privileged \
+          -v ${{ github.workspace }}:/gost-os-project \
+          debian:trixie \
+          /bin/bash -c "
+          set -e
+          
+          # --- KROK 1: Instalacja zależności wewnątrz kontenera ---
+          echo '>>> Instalowanie narzędzi budujących...'
+          apt-get update
+          apt-get install -y live-build squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools git rsync
 
-    - name: Create and Customize Debian Chroot
-      run: |
-        # Krok 1: Stwórz bazowy system Debian
-        sudo debootstrap --arch=amd64 --variant=minbase trixie ../chroot http://deb.debian.org/debian/
-        
-        # Krok 2: Skopiuj pliki projektu do chroota
-        sudo cp -r ${{ github.workspace }} ../chroot/gost-os-project
-        
-        # Krok 3: Wykonaj całą personalizację wewnątrz chroota
-        sudo chroot ../chroot /bin/bash -c "
-        set -e
-        
-        # --- INSTALACJA PAKIETÓW ---
-        echo '>>> Instalowanie pakietów...'
-        # Ustawienie poprawnego sources.list
-        echo 'deb http://deb.debian.org/debian/ trixie main contrib non-free non-free-firmware' > /etc/apt/sources.list
-        apt-get update
-        
-        # Instalacja wszystkich pakietów naraz
-        apt-get install -y --no-install-recommends \
-            git sudo xfce4 xfce4-goodies menulibre mugshot xfce4-session-wayland \
-            librsvg2-bin gtk2-engines-murrine gtk2-engines-pixbuf xfce4-appfinder \
-            lightdm lightdm-gtk-greeter-settings live-boot live-config live-tools \
-            linux-image-amd64 virtualbox-guest-utils virtualbox-guest-x11 systemd-sysv
+          # --- KROK 2: Przygotowanie środowiska live-build ---
+          echo '>>> Przygotowanie środowiska live-build...'
+          cd /
+          live-build/auto/build
 
-        # --- INSTALACJA MOTYWÓW ---
-        echo '>>> Instalowanie motywów...'
-        cd /gost-os-project
-        
-        # Poprawiamy skrypty instalacyjne motywów, usuwając z nich 'sudo'
-        sed -i 's/sudo //g' zasoby/WhiteSur-gtk-theme/install.sh
-        
-        # Nadajemy uprawnienia i instalujemy
-        chmod +x zasoby/WhiteSur-gtk-theme/install.sh
-        chmod +x zasoby/Win10Sur-icon-theme/install.sh
-        ./zasoby/WhiteSur-gtk-theme/install.sh -t green -l
-        ./zasoby/Win10Sur-icon-theme/install.sh -a
-
-        # --- KOPIOWANIE KONFIGURACJI ---
-        echo '>>> Kopiowanie plików konfiguracyjnych...'
-        USER_HOME='/home/user' # W systemie live domyślny użytkownik to 'user'
-        
-        # Kopiowanie grafiki systemowej
-        mkdir -p /usr/share/backgrounds/gostos
-        cp zasoby/branding/wallpaper_gostos.jpg /usr/share/images/desktop-base/
-        cp zasoby/branding/login-background.png /usr/share/backgrounds/gostos/
-        cp zasoby/branding/avatar.png /usr/share/backgrounds/gostos/
-        cp zasoby/branding/gostos-start.png /usr/share/pixmaps/
-
-        # Kopiowanie konfiguracji użytkownika
-        mkdir -p \$USER_HOME/.config \$USER_HOME/Pulpit
-        cp -r konfiguracja/pulpit/* \$USER_HOME/.config/xfce4/xfconf/xfce-perchannel-xml/
-        cp -r konfiguracja/panel/* \$USER_HOME/.config/xfce4/xfconf/xfce-perchannel-xml/
-        mkdir -p \$USER_HOME/.config/menus \$USER_HOME/.local/share/applications
-        cp konfiguracja/menu/xfce-applications.menu \$USER_HOME/.config/menus/
-        cp -r konfiguracja/menu/custom-applications/* \$USER_HOME/.local/share/applications/
-        mkdir -p \$USER_HOME/.config/gtk-3.0
-        cp konfiguracja/motywy/gtk.css \$USER_HOME/.config/gtk-3.0/
-        cp konfiguracja/motywy/.gtkrc-2.0 \$USER_HOME/
-        cp -r konfiguracja/pulpit/skroty/* \$USER_HOME/Pulpit
-        chmod +x \$USER_HOME/Pulpit/*.desktop
-        
-        # Konfiguracja LightDM
-        cp konfiguracja/logowanie/lightdm-gtk-greeter.conf /etc/lightdm/
-        
-        # Ustawianie awatara i naprawa uprawnień
-        cp /usr/share/backgrounds/gostos/avatar.png \$USER_HOME/.face
-        chown -R 1000:1000 \$USER_HOME
-        
-        # Czyszczenie
-        rm -rf /gost-os-project
-        apt-get clean
-        "
-
-    - name: Create ISO Image
-      run: |
-        mkdir -p image/live image/boot/grub
-        sudo mksquashfs ../chroot image/live/filesystem.squashfs -comp xz -e boot
-        sudo cp ../chroot/boot/vmlinuz-* image/live/vmlinuz
-        sudo cp ../chroot/boot/initrd.img-* image/live/initrd.img
-        cat > image/boot/grub/grub.cfg <<'EOF'
-        set timeout=5
-        set default="0"
-        menuentry "Start GOST OS Live" {
-            linux /live/vmlinuz boot=live
-            initrd /live/initrd.img
-        }
-        EOF
-        sudo grub-mkrescue -o gost-os.iso image
+          # --- KROK 3: Kopiowanie personalizacji GOST OS ---
+          echo '>>> Kopiowanie plików GOST OS...'
+          rsync -a /gost-os-project/konfiguracja/ config/includes.chroot/etc/skel/
+          rsync -a /gost-os-project/zasoby/ config/includes.chroot/usr/share/
+          # Dodajemy skrypty, które wykonają się przy pierwszym uruchomieniu
+          mkdir -p config/includes.chroot/etc/skel/.config/autostart
+          cp /gost-os-project/skrypty/*.sh config/includes.chroot/etc/skel/.config/autostart/
+          
+          # --- KROK 4: Budowanie obrazu ISO ---
+          echo '>>> Rozpoczynanie budowania obrazu ISO...'
+          lb build
+          "
         
     - name: Upload ISO as artifact
       uses: actions/upload-artifact@v4
       with:
         name: gost-os-iso
-        path: gost-os.iso
+        # Ścieżka do pliku ISO, który został stworzony w kontenerze i zamontowany z powrotem na runnerze
+        path: live-image-amd64.hybrid.iso
