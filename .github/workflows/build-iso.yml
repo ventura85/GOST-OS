@@ -25,27 +25,24 @@ jobs:
     - name: Customize Chroot Environment
       run: |
         sudo cp -r ${{ github.workspace }} ../chroot/gost-os-project
+        
+        # JEDNA, KOMPLETNA LISTA WSZYSTKICH POTRZEBNYCH PAKIETÓW
         PACKAGES=$(cat <<'EOF'
         git sudo xfce4 xfce4-goodies menulibre mugshot xfce4-session-wayland 
         librsvg2-bin gtk2-engines-murrine gtk2-engines-pixbuf xfce4-appfinder 
         lightdm lightdm-gtk-greeter-settings live-boot live-config live-tools 
-        virtualbox-guest-utils virtualbox-guest-x11 systemd-sysv
+        linux-image-amd64 virtualbox-guest-utils virtualbox-guest-x11 systemd-sysv
         EOF
         )
+
         sudo chroot ../chroot /bin/bash -c "
         set -e
         echo 'deb http://deb.debian.org/debian/ trixie main contrib non-free non-free-firmware' > /etc/apt/sources.list
-        
         apt-get update
-        # --- KLUCZOWA POPRAWKA: Instalujemy jądro jako pierwszy, osobny krok ---
-        apt-get install -y linux-image-amd64
-
-        # Instalujemy resztę pakietów
         apt-get install -y --no-install-recommends \$PACKAGES
 
-        # Uruchamiamy nasze skrypty konfiguracyjne
+        # Uruchamiamy TYLKO skrypty konfiguracyjne (02 i 03)
         cd /gost-os-project/skrypty
-        ./01-instalacja-pakietow.sh
         ./02-instalacja-motywow.sh
         ./03-kopiowanie-konfiguracji.sh
         
