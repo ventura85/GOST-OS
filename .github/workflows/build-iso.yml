@@ -11,7 +11,6 @@ jobs:
 
     steps:
     - name: Checkout repository
-      # Ten krok pobiera Twój projekt do /home/runner/work/GOST-OS/GOST-OS
       uses: actions/checkout@v4
 
     - name: Install Dependencies
@@ -21,15 +20,11 @@ jobs:
 
     - name: Create Debian Chroot Environment
       run: |
-        # Tworzymy folder chroot OBOK folderu z projektem, aby uniknąć konfliktu
         sudo debootstrap --arch=amd64 --variant=minbase trixie ../chroot http://deb.debian.org/debian/
     
     - name: Customize Chroot Environment
       run: |
-        # Kopiujemy nasz projekt (z ${{ github.workspace }}) do chroota
         sudo cp -r ${{ github.workspace }} ../chroot/gost-os-project
-
-        # Lista pakietów do zainstalowania
         PACKAGES=$(cat <<'EOF'
         git sudo xfce4 xfce4-goodies menulibre mugshot xfce4-session-wayland 
         librsvg2-bin gtk2-engines-murrine gtk2-engines-pixbuf xfce4-appfinder 
@@ -37,33 +32,29 @@ jobs:
         linux-image-amd64 virtualbox-guest-utils virtualbox-guest-x11 systemd-sysv
         EOF
         )
-
-        # Wykonujemy skrypty wewnątrz chroota
         sudo chroot ../chroot /bin/bash -c "
         set -e
-        # Dodajemy repozytoria contrib i non-free
         echo 'deb http://deb.debian.org/debian/ trixie main contrib non-free non-free-firmware' > /etc/apt/sources.list
-        
-        # Instalujemy pakiety
         apt-get update
         apt-get install -y --no-install-recommends \$PACKAGES
-
-        # Uruchamiamy nasze skrypty konfiguracyjne
         cd /gost-os-project/skrypty
         ./01-instalacja-pakietow.sh
         ./02-instalacja-motywow.sh
         ./03-kopiowanie-konfiguracji.sh
-        
-        # Czyścimy po sobie
         rm -rf /gost-os-project
         apt-get clean
         "
 
     - name: Create ISO Image
       run: |
-        # Tworzymy strukturę dla obrazu ISO
-        mkdir image
+        # Tworzymy CAŁĄ potrzebną strukturę dla obrazu ISO
+        mkdir -p image/live
+        mkdir -p image/boot/grub   # <-- TO JEST KLUCZOWA POPRAWKA
+
+        # Kompresujemy system plików
         sudo mksquashfs ../chroot image/live/filesystem.squashfs -comp xz -e boot
+        
+        # Kopiujemy jądro i initramfs
         sudo cp ../chroot/boot/vmlinuz-* image/live/vmlinuz
         sudo cp ../chroot/boot/initrd.img-* image/live/initrd.img
         
