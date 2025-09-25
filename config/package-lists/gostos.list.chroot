@@ -18,7 +18,9 @@ lightdm-gtk-greeter-settings
 # --- Zależności i Sterowniki ---
 gtk2-engines-murrine
 
-# --- ZALEŻNOŚCI POTRZEBNE DO ZBUDOWANIA MOTYWÓW (DODANE) ---
+# --- ZALEŻNOŚCI POTRZEBNE DO ZBUDOWANIA MOTYWÓW ---
 sassc
 libglib2.0-dev
 libxml2-utils
+# Dodajemy pakiet zbiorczy z podstawowymi narzędziami do kompilacji (np. make, gcc)
+build-essential

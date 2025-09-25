@@ -1,32 +1,29 @@
 #!/bin/sh
-# Zatrzymuje skrypt w przypadku jakiegokolwiek błędu
-set -e
+# 'e' zatrzymuje skrypt w przypadku błędu
+# 'x' włącza tryb debugowania - wypisuje każdą komendę przed jej wykonaniem
+set -ex
 
-echo ">>> Rozpoczynanie finalnej konfiguracji systemu..."
+echo ">>> Rozpoczynanie finalnej konfiguracji systemu (TRYB DEBUG)..."
+
+# ... (reszta skryptu pozostaje bez zmian, ale dla pewności wklejam całość) ...
 
 # ------------------------------------------------------------------------------
 # --- Krok 1: Instalacja motywów z katalogu /zasoby ---
 # ------------------------------------------------------------------------------
 echo ">>> Instalowanie motywów..."
 
-# Sprawdzamy, czy katalog z motywem GTK istnieje
 if [ -d "/zasoby/WhiteSur-gtk-theme" ]; then
     echo "--> Instalowanie motywu WhiteSur GTK..."
-    # Usuwamy 'sudo' ze skryptu, ponieważ hak działa jako root
     sed -i 's/sudo //g' /zasoby/WhiteSur-gtk-theme/install.sh
-    # Nadajemy uprawnienia do wykonania i uruchamiamy instalator motywu
     chmod +x /zasoby/WhiteSur-gtk-theme/install.sh
     /zasoby/WhiteSur-gtk-theme/install.sh
 else
     echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu WhiteSur GTK w /zasoby/WhiteSur-gtk-theme."
 fi
 
-# Sprawdzamy, czy katalog z motywem ikon istnieje
 if [ -d "/zasoby/Win10Sur-icon-theme" ]; then
     echo "--> Instalowanie motywu ikon Win10Sur..."
-    # Usuwamy 'sudo' ze skryptu, ponieważ hak działa jako root
     sed -i 's/sudo //g' /zasoby/Win10Sur-icon-theme/install.sh
-    # Nadajemy uprawnienia do wykonania i uruchamiamy instalator motywu
     chmod +x /zasoby/Win10Sur-icon-theme/install.sh
     /zasoby/Win10Sur-icon-theme/install.sh
 else
@@ -38,10 +35,7 @@ fi
 # ------------------------------------------------------------------------------
 echo ">>> Kopiowanie domyślnej konfiguracji użytkownika..."
 
-# Sprawdzamy, czy katalog z konfiguracją istnieje
 if [ -d "/konfiguracja" ]; then
-    # Kopiujemy całą zawartość (w tym ukryte pliki) do /etc/skel
-    # /etc/skel to szablon dla katalogów domowych nowych użytkowników
     cp -rT /konfiguracja /etc/skel/
     echo "--> Konfiguracja skopiowana do /etc/skel."
 else
