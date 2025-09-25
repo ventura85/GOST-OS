@@ -12,11 +12,9 @@ xfce4
 xfce4-goodies
 menulibre
 mugshot
-xfce4-session-wayland
 lightdm
 lightdm-gtk-greeter-settings
 
 # --- Zależności i Sterowniki ---
 gtk2-engines-murrine
-virtualbox-guest-utils
-virtualbox-guest-x11
+
