@@ -11,6 +11,7 @@ jobs:
 
     steps:
     - name: Checkout repository
+      # Ten krok pobiera Twój projekt do /home/runner/work/GOST-OS/GOST-OS
       uses: actions/checkout@v4
 
     - name: Install Dependencies
@@ -20,13 +21,13 @@ jobs:
 
     - name: Create Debian Chroot Environment
       run: |
-        # Tworzymy folder na nasz system i uruchamiamy debootstrap
-        sudo debootstrap --arch=amd64 --variant=minbase trixie chroot http://deb.debian.org/debian/
+        # Tworzymy folder chroot OBOK folderu z projektem, aby uniknąć konfliktu
+        sudo debootstrap --arch=amd64 --variant=minbase trixie ../chroot http://deb.debian.org/debian/
     
     - name: Customize Chroot Environment
       run: |
-        # Kopiujemy nasz projekt do chroota
-        sudo cp -r . chroot/gost-os-project
+        # Kopiujemy nasz projekt (z ${{ github.workspace }}) do chroota
+        sudo cp -r ${{ github.workspace }} ../chroot/gost-os-project
 
         # Lista pakietów do zainstalowania
         PACKAGES=$(cat <<'EOF'
@@ -38,20 +39,18 @@ jobs:
         )
 
         # Wykonujemy skrypty wewnątrz chroota
-        sudo chroot chroot /bin/bash -c "
+        sudo chroot ../chroot /bin/bash -c "
         set -e
         # Dodajemy repozytoria contrib i non-free
         echo 'deb http://deb.debian.org/debian/ trixie main contrib non-free non-free-firmware' > /etc/apt/sources.list
         
         # Instalujemy pakiety
         apt-get update
-        apt-get install -y --no-install-recommends $PACKAGES
+        apt-get install -y --no-install-recommends \$PACKAGES
 
         # Uruchamiamy nasze skrypty konfiguracyjne
         cd /gost-os-project/skrypty
-        chmod +x *.sh
-        chmod +x ../zasoby/WhiteSur-gtk-theme/install.sh
-        chmod +x ../zasoby/Win10Sur-icon-theme/install.sh
+        ./01-instalacja-pakietow.sh
         ./02-instalacja-motywow.sh
         ./03-kopiowanie-konfiguracji.sh
         
@@ -63,14 +62,10 @@ jobs:
     - name: Create ISO Image
       run: |
         # Tworzymy strukturę dla obrazu ISO
-        mkdir -p image/{live,boot/grub}
-        
-        # Kompresujemy system plików
-        sudo mksquashfs chroot image/live/filesystem.squashfs -comp xz -e boot
-        
-        # Kopiujemy jądro i initramfs
-        sudo cp chroot/boot/vmlinuz-* image/live/vmlinuz
-        sudo cp chroot/boot/initrd.img-* image/live/initrd.img
+        mkdir image
+        sudo mksquashfs ../chroot image/live/filesystem.squashfs -comp xz -e boot
+        sudo cp ../chroot/boot/vmlinuz-* image/live/vmlinuz
+        sudo cp ../chroot/boot/initrd.img-* image/live/initrd.img
         
         # Tworzymy plik konfiguracyjny GRUB-a
         cat > image/boot/grub/grub.cfg <<'EOF'
