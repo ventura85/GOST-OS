@@ -18,3 +18,9 @@ lightdm-gtk-greeter-settings
 # --- Zależności i Sterowniki ---
 gtk2-engines-murrine
 
+# --- Zależności wymagane przez skrypty instalacyjne motywów ---
+# Te pakiety są niezbędne, aby skrypty install.sh mogły się poprawnie wykonać
+sassc
+libglib2.0-dev
+libxml2-utils
+git

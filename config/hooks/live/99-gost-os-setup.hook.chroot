@@ -9,24 +9,22 @@ echo ">>> Rozpoczynanie finalnej konfiguracji systemu..."
 # ------------------------------------------------------------------------------
 echo ">>> Instalowanie motywów..."
 
-# Poprawnie sprawdzamy, czy katalog z motywem GTK istnieje
-if [ -d "/zasoby/WhiteSur-gtk-theme" ]; then    # <-- POPRAWKA
+# Sprawdzamy, czy katalog z motywem GTK istnieje
+if [ -d "/zasoby/WhiteSur-gtk-theme" ]; then 
     echo "--> Instalowanie motywu WhiteSur GTK..."
-    # Nadajemy uprawnienia do wykonania i uruchamiamy instalator motywu
-    chmod +x /zasoby/WhiteSur-gtk-theme/install.sh
-    /zasoby/WhiteSur-gtk-theme/install.sh
+    # Uruchamiamy instalator w trybie cichym (--silent-mode), instalując motywy systemowo w /usr/share/themes (-d)
+    /zasoby/WhiteSur-gtk-theme/install.sh --silent-mode -d /usr/share/themes
 else
-    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu WhiteSur GTK w /zasoby/WhiteSur-gtk-theme."
+    echo "--> Ostrzeżenie: Nie znaleziono motywu WhiteSur GTK w /zasoby/WhiteSur-gtk-theme."
 fi
 
-# Poprawnie sprawdzamy, czy katalog z motywem ikon istnieje
-if [ -d "/zasoby/Win10Sur-icon-theme" ]; then    # <-- POPRAWKA
+# Sprawdzamy, czy katalog z motywem ikon istnieje
+if [ -d "/zasoby/Win10Sur-icon-theme" ]; then  
     echo "--> Instalowanie motywu ikon Win10Sur..."
-    # Nadajemy uprawnienia do wykonania i uruchamiamy instalator motywu
-    chmod +x /zasoby/Win10Sur-icon-theme/install.sh
-    /zasoby/Win10Sur-icon-theme/install.sh
+    # Uruchamiamy instalator w trybie cichym (--silent-mode), instalując ikony systemowo w /usr/share/icons (-d)
+    /zasoby/Win10Sur-icon-theme/install.sh --silent-mode -d /usr/share/icons
 else
-    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu ikon Win10Sur w /zasoby/Win10Sur-icon-theme."
+    echo "--> Ostrzeżenie: Nie znaleziono motywu ikon Win10Sur w /zasoby/Win10Sur-icon-theme."
 fi
 
 # ------------------------------------------------------------------------------
@@ -36,9 +34,8 @@ echo ">>> Kopiowanie domyślnej konfiguracji użytkownika..."
 
 # Sprawdzamy, czy katalog z konfiguracją istnieje
 if [ -d "/konfiguracja" ]; then
-    # Kopiujemy całą zawartość (w tym ukryte pliki) do /etc/skel
-    # /etc/skel to szablon dla katalogów domowych nowych użytkowników
-    cp -a /konfiguracja/. /etc/skel/
+    # Kopiujemy całą zawartość do /etc/skel (szablon dla nowych użytkowników)
+    cp -rT /konfiguracja /etc/skel/
     echo "--> Konfiguracja skopiowana do /etc/skel."
 else
     echo "--> Ostrzeżenie: Katalog /konfiguracja/ nie został znaleziony."
