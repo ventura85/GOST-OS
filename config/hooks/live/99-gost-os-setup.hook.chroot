@@ -1,11 +1,9 @@
 #!/bin/sh
 # 'e' zatrzymuje skrypt w przypadku błędu
-# 'x' włącza tryb debugowania - wypisuje każdą komendę przed jej wykonaniem
+# 'x' włącza tryb debugowania dla TEGO skryptu
 set -ex
 
 echo ">>> Rozpoczynanie finalnej konfiguracji systemu (TRYB DEBUG)..."
-
-# ... (reszta skryptu pozostaje bez zmian, ale dla pewności wklejam całość) ...
 
 # ------------------------------------------------------------------------------
 # --- Krok 1: Instalacja motywów z katalogu /zasoby ---
@@ -13,19 +11,21 @@ echo ">>> Rozpoczynanie finalnej konfiguracji systemu (TRYB DEBUG)..."
 echo ">>> Instalowanie motywów..."
 
 if [ -d "/zasoby/WhiteSur-gtk-theme" ]; then
-    echo "--> Instalowanie motywu WhiteSur GTK..."
+    echo "--> Instalowanie motywu WhiteSur GTK (z wymuszonym debugowaniem)..."
     sed -i 's/sudo //g' /zasoby/WhiteSur-gtk-theme/install.sh
     chmod +x /zasoby/WhiteSur-gtk-theme/install.sh
-    /zasoby/WhiteSur-gtk-theme/install.sh
+    # Uruchamiamy instalator przez 'bash -x', aby zobaczyć jego wewnętrzne komendy
+    bash -x /zasoby/WhiteSur-gtk-theme/install.sh
 else
     echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu WhiteSur GTK w /zasoby/WhiteSur-gtk-theme."
 fi
 
 if [ -d "/zasoby/Win10Sur-icon-theme" ]; then
-    echo "--> Instalowanie motywu ikon Win10Sur..."
+    echo "--> Instalowanie motywu ikon Win10Sur (z wymuszonym debugowaniem)..."
     sed -i 's/sudo //g' /zasoby/Win10Sur-icon-theme/install.sh
     chmod +x /zasoby/Win10Sur-icon-theme/install.sh
-    /zasoby/Win10Sur-icon-theme/install.sh
+    # Uruchamiamy instalator przez 'bash -x', aby zobaczyć jego wewnętrzne komendy
+    bash -x /zasoby/Win10Sur-icon-theme/install.sh
 else
     echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu ikon Win10Sur w /zasoby/Win10Sur-icon-theme."
 fi
