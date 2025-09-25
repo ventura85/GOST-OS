@@ -20,21 +20,26 @@ jobs:
 
     - name: Prepare live-build config
       run: |
-        # Krok 1: Stwórz folder roboczy
-        mkdir live-build-project
-        cd live-build-project
+        # Tworzymy folder roboczy OBOK folderu z kodem, aby uniknąć błędu kopiowania
+        mkdir ../live-build-project
+        cd ../live-build-project
 
-        # Krok 2: Zainicjuj konfigurację live-build dla Debiana
+        # Inicjalizujemy konfigurację
         lb config \
         --distribution trixie \
         --architectures amd64 \
-        --archive-areas "main contrib non-free non-free-firmware" \
-        --mirror-bootstrap http://deb.debian.org/debian/ \
-        --mirror-chroot http://deb.debian.org/debian/ \
-        --mirror-chroot-security http://security.debian.org/debian-security/
+        --archive-areas "main contrib non-free non-free-firmware"
         
-        # Krok 3: Stwórz listę pakietów
-        echo ">>> Creating package list..."
+        # BRUTALNA POPRAWKA: Tworzymy własny, idealny plik sources.list,
+        # aby zmusić live-build do używania tylko serwerów Debiana.
+        mkdir -p config/archives
+        cat > config/archives/gostos.list.chroot <<'EOF'
+        deb http://deb.debian.org/debian/ trixie main contrib non-free non-free-firmware
+        deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
+        deb http://deb.debian.org/debian/ trixie-updates main contrib non-free non-free-firmware
+        EOF
+        
+        # Tworzymy listę pakietów (zawiera wszystkie nasze poprawki)
         cat > config/package-lists/gostos.list.chroot <<'EOF'
         git
         sudo
@@ -58,22 +63,15 @@ jobs:
         systemd-sysv
         EOF
         
-        # Krok 4: Stwórz nakładkę z plikami projektu
-        echo ">>> Copying project files..."
-        # Kopiujemy pliki z repozytorium (które są w folderze nadrzędnym '../')
-        # do struktury, której oczekuje nasz skrypt haka
+        # Kopiujemy pliki projektu (z folderu ${{ github.workspace }}) do nakładki
         mkdir -p config/includes.chroot/opt/gostos-setup/GOST-OS
-        cp -r ../* config/includes.chroot/opt/gostos-setup/GOST-OS
+        cp -r ${{ github.workspace }}/* config/includes.chroot/opt/gostos-setup/GOST-OS
         
-        # Krok 5: Stwórz skrypt 'hak'
-        echo ">>> Creating hook script..."
+        # Tworzymy skrypt 'hak'
         mkdir -p config/hooks/chroot
         cat > config/hooks/chroot/gostos-setup.hook.chroot <<'EOF'
         #!/bin/bash
         cd /opt/gostos-setup/GOST-OS/skrypty
-        chmod +x *.sh
-        chmod +x ../zasoby/WhiteSur-gtk-theme/install.sh
-        chmod +x ../zasoby/Win10Sur-icon-theme/install.sh
         ./01-instalacja-pakietow.sh
         ./02-instalacja-motywow.sh
         ./03-kopiowanie-konfiguracji.sh
@@ -83,14 +81,15 @@ jobs:
 
     - name: Run live-build
       run: |
-        cd live-build-project
+        cd ../live-build-project
         sudo lb build 2>&1 | tee build.log
 
     - name: Upload ISO and Logs as artifact
-      if: success() || failure() # Zawsze próbuj wysłać, nawet jak build się nie uda
+      if: success() || failure()
       uses: actions/upload-artifact@v4
       with:
         name: gost-os-build-output
+        # Ścieżka jest teraz poprawna względem głównego folderu roboczego
         path: |
           live-build-project/live-image-amd64.hybrid.iso
           live-build-project/build.log
