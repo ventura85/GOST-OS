@@ -1,4 +1,4 @@
-name: Build GOST OS Live ISO
+name: Build GOST OS ISO
 
 on:
   push:
@@ -6,23 +6,87 @@ on:
   workflow_dispatch:
 
 jobs:
-  build_iso:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Build ISO in Docker Container
-        run: |
-          docker run --rm --privileged \
-            -v "${{ github.workspace }}":/build \
-            -w /build \
-            debian:trixie-slim \
-            /bin/bash -c "chmod +x build-iso.sh && ./build-iso.sh"
-            
-      - name: Upload ISO as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: gost-os-iso
-          path: live-image-amd64.hybrid.iso
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y debootstrap squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools
+
+    - name: Create Debian Chroot Environment
+      run: |
+        # Tworzymy folder na nasz system i uruchamiamy debootstrap
+        sudo debootstrap --arch=amd64 --variant=minbase trixie chroot http://deb.debian.org/debian/
+    
+    - name: Customize Chroot Environment
+      run: |
+        # Kopiujemy nasz projekt do chroota
+        sudo cp -r . chroot/gost-os-project
+
+        # Lista pakietów do zainstalowania
+        PACKAGES=$(cat <<'EOF'
+        git sudo xfce4 xfce4-goodies menulibre mugshot xfce4-session-wayland 
+        librsvg2-bin gtk2-engines-murrine gtk2-engines-pixbuf xfce4-appfinder 
+        lightdm lightdm-gtk-greeter-settings live-boot live-config live-tools 
+        linux-image-amd64 virtualbox-guest-utils virtualbox-guest-x11 systemd-sysv
+        EOF
+        )
+
+        # Wykonujemy skrypty wewnątrz chroota
+        sudo chroot chroot /bin/bash -c "
+        set -e
+        # Dodajemy repozytoria contrib i non-free
+        echo 'deb http://deb.debian.org/debian/ trixie main contrib non-free non-free-firmware' > /etc/apt/sources.list
+        
+        # Instalujemy pakiety
+        apt-get update
+        apt-get install -y --no-install-recommends $PACKAGES
+
+        # Uruchamiamy nasze skrypty konfiguracyjne
+        cd /gost-os-project/skrypty
+        chmod +x *.sh
+        chmod +x ../zasoby/WhiteSur-gtk-theme/install.sh
+        chmod +x ../zasoby/Win10Sur-icon-theme/install.sh
+        ./02-instalacja-motywow.sh
+        ./03-kopiowanie-konfiguracji.sh
+        
+        # Czyścimy po sobie
+        rm -rf /gost-os-project
+        apt-get clean
+        "
+
+    - name: Create ISO Image
+      run: |
+        # Tworzymy strukturę dla obrazu ISO
+        mkdir -p image/{live,boot/grub}
+        
+        # Kompresujemy system plików
+        sudo mksquashfs chroot image/live/filesystem.squashfs -comp xz -e boot
+        
+        # Kopiujemy jądro i initramfs
+        sudo cp chroot/boot/vmlinuz-* image/live/vmlinuz
+        sudo cp chroot/boot/initrd.img-* image/live/initrd.img
+        
+        # Tworzymy plik konfiguracyjny GRUB-a
+        cat > image/boot/grub/grub.cfg <<'EOF'
+        set timeout=5
+        set default="0"
+        menuentry "Start GOST OS Live" {
+            linux /live/vmlinuz boot=live
+            initrd /live/initrd.img
+        }
+        EOF
+
+        # Tworzymy finalny obraz ISO
+        sudo grub-mkrescue -o gost-os.iso image
+        
+    - name: Upload ISO as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: gost-os-iso
+        path: gost-os.iso
