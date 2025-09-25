@@ -10,7 +10,7 @@ echo ">>> Rozpoczynanie finalnej konfiguracji systemu..."
 echo ">>> Instalowanie motywów..."
 
 # Poprawnie sprawdzamy, czy katalog z motywem GTK istnieje
-if; then
+if [ -d "/zasoby/WhiteSur-gtk-theme" ]; then    # <-- POPRAWKA
     echo "--> Instalowanie motywu WhiteSur GTK..."
     # Nadajemy uprawnienia do wykonania i uruchamiamy instalator motywu
     chmod +x /zasoby/WhiteSur-gtk-theme/install.sh
@@ -20,7 +20,7 @@ else
 fi
 
 # Poprawnie sprawdzamy, czy katalog z motywem ikon istnieje
-if; then
+if [ -d "/zasoby/Win10Sur-icon-theme" ]; then    # <-- POPRAWKA
     echo "--> Instalowanie motywu ikon Win10Sur..."
     # Nadajemy uprawnienia do wykonania i uruchamiamy instalator motywu
     chmod +x /zasoby/Win10Sur-icon-theme/install.sh
@@ -38,7 +38,7 @@ echo ">>> Kopiowanie domyślnej konfiguracji użytkownika..."
 if [ -d "/konfiguracja" ]; then
     # Kopiujemy całą zawartość (w tym ukryte pliki) do /etc/skel
     # /etc/skel to szablon dla katalogów domowych nowych użytkowników
-    cp -rT /konfiguracja /etc/skel/
+    cp -a /konfiguracja/. /etc/skel/
     echo "--> Konfiguracja skopiowana do /etc/skel."
 else
     echo "--> Ostrzeżenie: Katalog /konfiguracja/ nie został znaleziony."
