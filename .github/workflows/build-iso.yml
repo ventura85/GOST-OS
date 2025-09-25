@@ -1,0 +1,37 @@
+name: Build GOST OS ISO
+
+on:
+  push:
+    branches: [ "main" ] # Uruchamia się po każdej zmianie na głównej gałęzi
+  workflow_dispatch: # Pozwala na ręczne uruchomienie
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Używamy standardowej maszyny budującej
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y live-build
+
+    - name: Prepare build environment
+      run: |
+        # Uruchamiamy skrypt przygotowawczy, który stworzyliśmy
+        # Używamy sudo, bo skrypt usuwa pliki roota z poprzednich buildów (dobra praktyka)
+        chmod +x przygotuj-build.sh
+        sudo ./przygotuj-build.sh
+
+    - name: Run live-build
+      run: |
+        cd ~/gost-os-live-build
+        sudo lb build
+
+    - name: Upload ISO as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: gost-os-iso
+        path: /home/runner/gost-os-live-build/live-image-amd64.hybrid.iso
