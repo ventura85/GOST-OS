@@ -1,4 +1,4 @@
-name: Build GOST OS ISO
+name: Build GOST OS Live ISO
 
 on:
   push:
@@ -6,86 +6,23 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build_iso:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y live-build rsync
-
-    - name: Prepare and Run Build
-      run: |
-        # Krok 1: Stwórz folder roboczy wewnątrz folderu projektu
-        mkdir gost-os-build
-        cd gost-os-build
-
-        # Krok 2: Zainicjuj konfigurację live-build
-        lb config \
-        --distribution trixie \
-        --architectures amd64 \
-        --archive-areas "main contrib non-free non-free-firmware" \
-        --mirror-bootstrap http://deb.debian.org/debian/ \
-        --mirror-chroot http://deb.debian.org/debian/ \
-        --mirror-chroot-security http://security.debian.org/debian-security/
-        
-        # Krok 3: Stwórz listę pakietów
-        cat > config/package-lists/gostos.list.chroot <<'EOF'
-        git
-        sudo
-        xfce4
-        xfce4-goodies
-        menulibre
-        mugshot
-        xfce4-session-wayland
-        librsvg2-bin
-        gtk2-engines-murrine
-        gtk2-engines-pixbuf
-        xfce4-appfinder
-        lightdm
-        lightdm-gtk-greeter-settings
-        live-boot
-        live-config
-        live-tools
-        linux-image-amd64
-        virtualbox-guest-utils
-        virtualbox-guest-x11
-        systemd-sysv
-        EOF
-        
-        # Krok 4: Stwórz nakładkę z plikami projektu używając rsync
-        mkdir -p config/includes.chroot/opt/gostos-setup
-        # Używamy rsync do bezpiecznego kopiowania, z wykluczeniem samego siebie
-        rsync -a --exclude 'gost-os-build' ../* config/includes.chroot/opt/gostos-setup/
-        
-        # Krok 5: Stwórz skrypt 'hak'
-        mkdir -p config/hooks/chroot
-        cat > config/hooks/chroot/gostos-setup.hook.chroot <<'EOF'
-        #!/bin/bash
-        set -e
-        cd /opt/gostos-setup/skrypty
-        chmod +x *.sh
-        chmod +x ../zasoby/WhiteSur-gtk-theme/install.sh
-        chmod +x ../zasoby/Win10Sur-icon-theme/install.sh
-        ./01-instalacja-pakietow.sh
-        ./02-instalacja-motywow.sh
-        ./03-kopiowanie-konfiguracji.sh
-        rm -rf /opt/gostos-setup
-        EOF
-        chmod +x config/hooks/chroot/gostos-setup.hook.chroot
-
-        # Krok 6: Uruchom budowanie
-        sudo lb build 2>&1 | tee build.log
-
-    - name: Upload ISO and Logs as artifact
-      if: success() || failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: gost-os-build-output
-        path: |
-          gost-os-build/live-image-amd64.hybrid.iso
-          gost-os-build/build.log
+      - name: Build ISO in Docker Container
+        run: |
+          docker run --rm --privileged \
+            -v "${{ github.workspace }}":/build \
+            -w /build \
+            debian:trixie-slim \
+            /bin/bash -c "chmod +x build-iso.sh && ./build-iso.sh"
+            
+      - name: Upload ISO as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gost-os-iso
+          path: live-image-amd64.hybrid.iso

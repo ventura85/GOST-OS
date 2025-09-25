@@ -1,0 +1,29 @@
+#!/bin/sh
+# Konfiguracja dla lb_config
+
+lb config noauto \
+    --mode "debian" \
+    --distribution "trixie" \
+    --parent-distribution "trixie" \
+    --parent-debian-installer-distribution "trixie" \
+    --archive-areas "main contrib non-free non-free-firmware" \
+    --security "true" \
+    --updates "true" \
+    --backports "false" \
+    \
+    --architectures "amd64" \
+    --linux-packages "linux-image-amd64" \
+    \
+    --initramfs "live-boot" \
+    \
+    --binary-images "iso-hybrid" \
+    --bootloader "grub-pc" \
+    --iso-application "GOST OS" \
+    --iso-publisher "ventura85" \
+    --iso-volume "GOST-OS-1.0" \
+    \
+    --memtest "memtest86+" \
+    --debian-installer "false" \
+    \
+    --apt-recommends "true" \
+    "${@}"
