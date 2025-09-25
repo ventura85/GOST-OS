@@ -1,26 +1,65 @@
+# Nazwa całego procesu (workflow), widoczna w zakładce "Actions" na GitHubie
 name: Build GOST OS ISO
 
+# Definicja, kiedy ten proces ma się automatycznie uruchamiać
 on:
+  # Uruchom przy każdym pushu (wysłaniu zmian) do gałęzi "main"
   push:
     branches: [ "main" ]
+  # Umożliwia ręczne uruchomienie procesu z poziomu interfejsu GitHub
   workflow_dispatch:
 
+# Definicja zadań do wykonania
 jobs:
   build:
+    # Uruchom na najnowszej dostępnej maszynie wirtualnej z Ubuntu
     runs-on: ubuntu-latest
 
+    # Sekwencja kroków do wykonania
     steps:
+      # Krok 1: Pobranie kodu źródłowego z Twojego repozytorium
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build ISO using live-build
+      # Krok 2: Konfiguracja cachowania, aby przyspieszyć przyszłe buildy
+      - name: Cache live-build directories
+        uses: actions/cache@v4
+        with:
+          # Ścieżki do katalogów, które chcemy zapisać w pamięci podręcznej
+          path: |
+            cache
+            chroot
+          # Unikalny klucz dla cache. Zmieni się tylko, gdy zmienisz listę pakietów lub konfigurację
+          key: ${{ runner.os }}-live-build-${{ hashFiles('**/gostos.list.chroot', '**/config') }}
+          # Klucze zapasowe, jeśli dokładny klucz nie zostanie znaleziony
+          restore-keys: |
+            ${{ runner.os }}-live-build-
+
+      # Krok 3: Upewnij się, że skrypty haków mają uprawnienia do uruchamiania
+      - name: Ensure hooks are executable
+        run: sudo chmod -R +x config/hooks/live/*
+
+      # Krok 4: Główny etap budowania obrazu ISO
+      - name: Configure and build ISO
         run: |
+          # Instalacja narzędzia live-build i jego zależności
+          echo "INFO: Installing live-build..."
           sudo apt-get update
-          sudo apt-get install -y live-build
+          sudo apt-get install -y --no-install-recommends live-build
+          
+          # Jawne wczytanie konfiguracji z katalogu auto/
+          echo "INFO: Configuring live-build..."
+          sudo lb config
+          
+          # Uruchomienie właściwego procesu budowania obrazu ISO
+          echo "INFO: Starting the build process..."
           sudo lb build
-      
+
+      # Krok 5: Wysłanie gotowego obrazu ISO jako artefaktu do pobrania
       - name: Upload ISO as artifact
         uses: actions/upload-artifact@v4
         with:
+          # Nazwa artefaktu, która będzie widoczna na stronie workflow
           name: gost-os-iso
+          # Ścieżka do pliku, który ma zostać wysłany
           path: live-image-amd64.hybrid.iso
