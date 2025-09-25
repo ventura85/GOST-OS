@@ -55,4 +55,42 @@ jobs:
         linux-image-amd64
         virtualbox-guest-utils
         virtualbox-guest-x11
-        systemd-sys
+        systemd-sysv
+        EOF
+        
+        # Krok 4: Stwórz nakładkę z plikami projektu
+        echo ">>> Copying project files..."
+        # Kopiujemy pliki z repozytorium (które są w folderze nadrzędnym '../')
+        # do struktury, której oczekuje nasz skrypt haka
+        mkdir -p config/includes.chroot/opt/gostos-setup/GOST-OS
+        cp -r ../* config/includes.chroot/opt/gostos-setup/GOST-OS
+        
+        # Krok 5: Stwórz skrypt 'hak'
+        echo ">>> Creating hook script..."
+        mkdir -p config/hooks/chroot
+        cat > config/hooks/chroot/gostos-setup.hook.chroot <<'EOF'
+        #!/bin/bash
+        cd /opt/gostos-setup/GOST-OS/skrypty
+        chmod +x *.sh
+        chmod +x ../zasoby/WhiteSur-gtk-theme/install.sh
+        chmod +x ../zasoby/Win10Sur-icon-theme/install.sh
+        ./01-instalacja-pakietow.sh
+        ./02-instalacja-motywow.sh
+        ./03-kopiowanie-konfiguracji.sh
+        rm -rf /opt/gostos-setup
+        EOF
+        chmod +x config/hooks/chroot/gostos-setup.hook.chroot
+
+    - name: Run live-build
+      run: |
+        cd live-build-project
+        sudo lb build 2>&1 | tee build.log
+
+    - name: Upload ISO and Logs as artifact
+      if: success() || failure() # Zawsze próbuj wysłać, nawet jak build się nie uda
+      uses: actions/upload-artifact@v4
+      with:
+        name: gost-os-build-output
+        path: |
+          live-build-project/live-image-amd64.hybrid.iso
+          live-build-project/build.log
