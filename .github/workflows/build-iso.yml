@@ -2,12 +2,12 @@ name: Build GOST OS ISO
 
 on:
   push:
-    branches: [ "main" ] # Uruchamia się po każdej zmianie na głównej gałęzi
-  workflow_dispatch: # Pozwala na ręczne uruchomienie
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Używamy standardowej maszyny budującej
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repository
@@ -18,20 +18,41 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y live-build
 
-    - name: Prepare build environment
+    - name: Prepare live-build config
       run: |
-        # Uruchamiamy skrypt przygotowawczy, który stworzyliśmy
-        # Używamy sudo, bo skrypt usuwa pliki roota z poprzednich buildów (dobra praktyka)
-        chmod +x przygotuj-build.sh
-        sudo ./przygotuj-build.sh
+        # Krok 1: Stwórz folder roboczy
+        mkdir live-build-project
+        cd live-build-project
 
-    - name: Run live-build
-      run: |
-        cd ~/gost-os-live-build
-        sudo lb build
-
-    - name: Upload ISO as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: gost-os-iso
-        path: /home/runner/gost-os-live-build/live-image-amd64.hybrid.iso
+        # Krok 2: Zainicjuj konfigurację live-build dla Debiana
+        lb config \
+        --distribution trixie \
+        --architectures amd64 \
+        --archive-areas "main contrib non-free non-free-firmware" \
+        --mirror-bootstrap http://deb.debian.org/debian/ \
+        --mirror-chroot http://deb.debian.org/debian/ \
+        --mirror-chroot-security http://security.debian.org/debian-security/
+        
+        # Krok 3: Stwórz listę pakietów
+        echo ">>> Creating package list..."
+        cat > config/package-lists/gostos.list.chroot <<'EOF'
+        git
+        sudo
+        xfce4
+        xfce4-goodies
+        menulibre
+        mugshot
+        xfce4-session-wayland
+        librsvg2-bin
+        gtk2-engines-murrine
+        gtk2-engines-pixbuf
+        xfce4-appfinder
+        lightdm
+        lightdm-gtk-greeter-settings
+        live-boot
+        live-config
+        live-tools
+        linux-image-amd64
+        virtualbox-guest-utils
+        virtualbox-guest-x11
+        systemd-sys
