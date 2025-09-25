@@ -13,43 +13,17 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Build ISO inside Debian Docker Container
+    - name: Build ISO using live-build
       run: |
-        # Uruchamiamy kontener z oficjalnego obrazu Debian 13 "Trixie"
-        # Montujemy nasz projekt do folderu /gost-os-project wewnątrz kontenera
-        docker run \
-          --privileged \
-          -v ${{ github.workspace }}:/gost-os-project \
-          debian:trixie \
-          /bin/bash -c "
-          set -e
-          
-          # --- KROK 1: Instalacja zależności wewnątrz kontenera ---
-          echo '>>> Instalowanie narzędzi budujących...'
-          apt-get update
-          apt-get install -y live-build squashfs-tools xorriso grub-pc-bin grub-efi-amd64-bin mtools git rsync
+        # Instalujemy live-build
+        sudo apt-get update
+        sudo apt-get install -y live-build
 
-          # --- KROK 2: Przygotowanie środowiska live-build ---
-          echo '>>> Przygotowanie środowiska live-build...'
-          cd /
-          live-build/auto/build
-
-          # --- KROK 3: Kopiowanie personalizacji GOST OS ---
-          echo '>>> Kopiowanie plików GOST OS...'
-          rsync -a /gost-os-project/konfiguracja/ config/includes.chroot/etc/skel/
-          rsync -a /gost-os-project/zasoby/ config/includes.chroot/usr/share/
-          # Dodajemy skrypty, które wykonają się przy pierwszym uruchomieniu
-          mkdir -p config/includes.chroot/etc/skel/.config/autostart
-          cp /gost-os-project/skrypty/*.sh config/includes.chroot/etc/skel/.config/autostart/
-          
-          # --- KROK 4: Budowanie obrazu ISO ---
-          echo '>>> Rozpoczynanie budowania obrazu ISO...'
-          lb build
-          "
+        # Uruchamiamy budowanie z plikami z folderu 'config'
+        sudo lb build
         
     - name: Upload ISO as artifact
       uses: actions/upload-artifact@v4
       with:
         name: gost-os-iso
-        # Ścieżka do pliku ISO, który został stworzony w kontenerze i zamontowany z powrotem na runnerze
         path: live-image-amd64.hybrid.iso
