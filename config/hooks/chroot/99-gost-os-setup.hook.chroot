@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+
+# Przechodzimy do folderu ze skryptami, który został skopiowany do systemu
+cd /skrypty
+
+# Nadajemy uprawnienia
+chmod +x 02-instalacja-motywow.sh
+chmod +x 03-kopiowanie-konfiguracji.sh
+chmod +x ../zasoby/WhiteSur-gtk-theme/install.sh
+chmod +x ../zasoby/Win10Sur-icon-theme/install.sh
+
+# Uruchamiamy skrypty
+./02-instalacja-motywow.sh
+./03-kopiowanie-konfiguracji.sh

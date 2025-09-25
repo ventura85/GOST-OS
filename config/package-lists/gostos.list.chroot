@@ -1,0 +1,22 @@
+# --- Pakiety Systemowe i Live ---
+git
+sudo
+live-boot
+live-config
+live-tools
+linux-image-amd64
+systemd-sysv
+
+# --- Środowisko Graficzne i Aplikacje ---
+xfce4
+xfce4-goodies
+menulibre
+mugshot
+xfce4-session-wayland
+lightdm
+lightdm-gtk-greeter-settings
+
+# --- Zależności i Sterowniki ---
+gtk2-engines-murrine
+virtualbox-guest-utils
+virtualbox-guest-x11
