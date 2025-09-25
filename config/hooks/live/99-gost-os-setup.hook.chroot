@@ -2,31 +2,36 @@
 set -e
 
 echo ">>> Rozpoczynanie finalnej konfiguracji systemu..."
+echo ">>> Instalowanie motywów..."
 
-# --- Krok 1: Uruchomienie skryptów z /skrypty ---
-# Wewnątrz chroot, pliki z includes.chroot lądują w głównym katalogu /
-
-# Sprawdzamy, czy skrypt 02-instalacja-motywow.sh istnieje
-if [ -f "/skrypty/02-instalacja-motywow.sh" ]; then
-    echo "--> Uruchamianie instalacji motywów..."
-    # Nadajemy uprawnienia i uruchamiamy
-    chmod +x /skrypty/02-instalacja-motywow.sh
-    /skrypty/02-instalacja-motywow.sh
+# Sprawdzamy, czy katalog z motywem GTK istnieje
+if [ -d "/zasoby/WhiteSur-gtk-theme" ]; then
+    echo "--> Instalowanie motywu WhiteSur GTK..."
+    # OSTATECZNA POPRAWKA: Nadajemy uprawnienia tuż przed uruchomieniem
+    chmod +x /zasoby/WhiteSur-gtk-theme/install.sh
+    /zasoby/WhiteSur-gtk-theme/install.sh -t green -l
 else
-    echo "--> Ostrzeżenie: Nie znaleziono skryptu 02-instalacja-motywow.sh."
+    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu WhiteSur GTK."
 fi
 
-# Sprawdzamy, czy skrypt 03-kopiowanie-konfiguracji.sh istnieje
-if [ -f "/skrypty/03-kopiowanie-konfiguracji.sh" ]; then
-    echo "--> Uruchamianie kopiowania konfiguracji..."
-    # Nadajemy uprawnienia i uruchamiamy
-    chmod +x /skrypty/03-kopiowanie-konfiguracji.sh
-    /skrypty/03-kopiowanie-konfiguracji.sh
+# Sprawdzamy, czy katalog z motywem ikon istnieje
+if [ -d "/zasoby/Win10Sur-icon-theme" ]; then
+    echo "--> Instalowanie motywu ikon Win10Sur..."
+    # OSTATECZNA POPRAWKA: Nadajemy uprawnienia tuż przed uruchomieniem
+    chmod +x /zasoby/Win10Sur-icon-theme/install.sh
+    /zasoby/Win10Sur-icon-theme/install.sh -a
 else
-    echo "--> Ostrzeżenie: Nie znaleziono skryptu 03-kopiowanie-konfiguracji.sh."
+    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu ikon Win10Sur."
 fi
 
-# --- Krok 2: Czyszczenie ---
+echo ">>> Kopiowanie domyślnej konfiguracji użytkownika..."
+if [ -d "/konfiguracja" ]; then
+    cp -a /konfiguracja/. /etc/skel/
+    echo "--> Konfiguracja skopiowana do /etc/skel."
+else
+    echo "--> Ostrzeżenie: Katalog /konfiguracja/ nie został znaleziony."
+fi
+
 echo ">>> Czyszczenie plików tymczasowych..."
 rm -rf /zasoby
 rm -rf /konfiguracja
