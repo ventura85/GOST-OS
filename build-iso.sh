@@ -1,13 +1,13 @@
 #!/bin/bash
-# Wersja 2.0 FINALNA - Główny skrypt budujący ISO w kontenerze Docker
+# Wersja 2.1 FINALNA - Główny skrypt budujący ISO w kontenerze Docker
 
 # Przerywa wykonanie skryptu w przypadku błędu
 set -e
 
 # --- KROK 1: Instalacja zależności wewnątrz kontenera ---
-echo ">>> Instalowanie zależności (live-build)..."
+echo ">>> Instalowanie zależności (live-build, rsync)..."
 apt-get update
-apt-get install -y --no-install-recommends live-build
+apt-get install -y --no-install-recommends live-build rsync
 
 # --- KROK 2: Czyszczenie i konfiguracja live-build ---
 echo ">>> Czyszczenie i konfiguracja środowiska live-build..."
@@ -54,7 +54,7 @@ EOF
 echo ">>> Kopiowanie plików projektu do nakładki..."
 mkdir -p config/includes.chroot/opt/gost-os-project
 # Kopiujemy całą zawartość bieżącego folderu (z wyjątkiem .git) do środka
-rsync -a --exclude='.git/' ./ config/includes.chroot/opt/gost-os-project/
+rsync -a --exclude='.git/' --exclude='.github/' ./ config/includes.chroot/opt/gost-os-project/
 
 # --- KROK 5: Tworzenie skryptu 'hak' ---
 echo ">>> Tworzenie skryptu 'hak' do finalnej konfiguracji..."
