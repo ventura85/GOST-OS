@@ -29,36 +29,39 @@ jobs:
         git sudo xfce4 xfce4-goodies menulibre mugshot xfce4-session-wayland 
         librsvg2-bin gtk2-engines-murrine gtk2-engines-pixbuf xfce4-appfinder 
         lightdm lightdm-gtk-greeter-settings live-boot live-config live-tools 
-        linux-image-amd64 virtualbox-guest-utils virtualbox-guest-x11 systemd-sysv
+        virtualbox-guest-utils virtualbox-guest-x11 systemd-sysv
         EOF
         )
         sudo chroot ../chroot /bin/bash -c "
         set -e
         echo 'deb http://deb.debian.org/debian/ trixie main contrib non-free non-free-firmware' > /etc/apt/sources.list
+        
         apt-get update
+        # --- KLUCZOWA POPRAWKA: Instalujemy jądro jako pierwszy, osobny krok ---
+        apt-get install -y linux-image-amd64
+
+        # Instalujemy resztę pakietów
         apt-get install -y --no-install-recommends \$PACKAGES
+
+        # Uruchamiamy nasze skrypty konfiguracyjne
         cd /gost-os-project/skrypty
         ./01-instalacja-pakietow.sh
         ./02-instalacja-motywow.sh
         ./03-kopiowanie-konfiguracji.sh
+        
+        # Czyścimy po sobie
         rm -rf /gost-os-project
         apt-get clean
         "
 
     - name: Create ISO Image
       run: |
-        # Tworzymy CAŁĄ potrzebną strukturę dla obrazu ISO
         mkdir -p image/live
-        mkdir -p image/boot/grub   # <-- TO JEST KLUCZOWA POPRAWKA
-
-        # Kompresujemy system plików
+        mkdir -p image/boot/grub
         sudo mksquashfs ../chroot image/live/filesystem.squashfs -comp xz -e boot
-        
-        # Kopiujemy jądro i initramfs
         sudo cp ../chroot/boot/vmlinuz-* image/live/vmlinuz
         sudo cp ../chroot/boot/initrd.img-* image/live/initrd.img
         
-        # Tworzymy plik konfiguracyjny GRUB-a
         cat > image/boot/grub/grub.cfg <<'EOF'
         set timeout=5
         set default="0"
@@ -68,7 +71,6 @@ jobs:
         }
         EOF
 
-        # Tworzymy finalny obraz ISO
         sudo grub-mkrescue -o gost-os.iso image
         
     - name: Upload ISO as artifact
