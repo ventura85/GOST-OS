@@ -1,0 +1,60 @@
+#!/bin/sh
+# Zatrzymuje skrypt w przypadku jakiegokolwiek błędu
+set -e
+
+echo ">>> Rozpoczynanie finalnej konfiguracji systemu..."
+
+# ------------------------------------------------------------------------------
+# --- Krok 1: Instalacja motywów z katalogu /zasoby ---
+# Zakładamy, że katalog /zasoby został skopiowany do systemu za pomocą
+# config/includes.chroot/zasoby/
+# ------------------------------------------------------------------------------
+echo ">>> Instalowanie motywów..."
+
+# Sprawdzamy, czy katalog z motywem GTK istnieje
+if; then
+    echo "--> Instalowanie motywu WhiteSur GTK..."
+    # Nadajemy uprawnienia do wykonania i uruchamiamy instalator motywu
+    chmod +x /zasoby/WhiteSur-gtk-theme/install.sh
+    /zasoby/WhiteSur-gtk-theme/install.sh
+else
+    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu WhiteSur GTK."
+fi
+
+# Sprawdzamy, czy katalog z motywem ikon istnieje
+if; then
+    echo "--> Instalowanie motywu ikon Win10Sur..."
+    # Nadajemy uprawnienia do wykonania i uruchamiamy instalator motywu
+    chmod +x /zasoby/Win10Sur-icon-theme/install.sh
+    /zasoby/Win10Sur-icon-theme/install.sh
+else
+    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu ikon Win10Sur."
+fi
+
+# ------------------------------------------------------------------------------
+# --- Krok 2: Kopiowanie plików konfiguracyjnych ---
+# Kopiujemy konfigurację do /etc/skel, aby każdy nowo utworzony
+# użytkownik (w tym domyślny użytkownik 'user' w systemie live)
+# otrzymał te ustawienia.
+# ------------------------------------------------------------------------------
+echo ">>> Kopiowanie domyślnej konfiguracji użytkownika..."
+
+# Sprawdzamy, czy katalog z konfiguracją istnieje
+if [ -d /konfiguracja ]; then
+    # Kopiujemy całą zawartość (w tym ukryte pliki) do /etc/skel
+    cp -rT /konfiguracja /etc/skel/
+    echo "--> Konfiguracja skopiowana do /etc/skel."
+else
+    echo "--> Ostrzeżenie: Katalog /konfiguracja/ nie został znaleziony."
+fi
+
+# ------------------------------------------------------------------------------
+# --- Krok 3: Czyszczenie ---
+# Usuwamy skopiowane katalogi, aby nie zaśmiecały finalnego systemu.
+# ------------------------------------------------------------------------------
+echo ">>> Czyszczenie plików tymczasowych..."
+rm -rf /zasoby
+rm -rf /konfiguracja
+rm -rf /skrypty # Usuwamy również ten katalog, jeśli został skopiowany
+
+echo ">>> Finalna konfiguracja systemu zakończona pomyślnie."
