@@ -1,41 +1,54 @@
 #!/bin/sh
+# Zatrzymuje skrypt w przypadku jakiegokolwiek błędu
 set -e
 
 echo ">>> Rozpoczynanie finalnej konfiguracji systemu..."
+
+# ------------------------------------------------------------------------------
+# --- Krok 1: Instalacja motywów z katalogu /zasoby ---
+# ------------------------------------------------------------------------------
 echo ">>> Instalowanie motywów..."
 
 # Sprawdzamy, czy katalog z motywem GTK istnieje
-if [ -d "/zasoby/WhiteSur-gtk-theme" ]; then
-    echo "--> Modyfikowanie i instalowanie motywu WhiteSur GTK..."
-    # OSTATECZNA POPRAWKA: Usuwamy 'sudo' ze skryptu instalacyjnego
-    sed -i 's/sudo //g' /zasoby/WhiteSur-gtk-theme/install.sh
-    
+if; then
+    echo "--> Instalowanie motywu WhiteSur GTK..."
+    # Nadajemy uprawnienia do wykonania i uruchamiamy instalator motywu
     chmod +x /zasoby/WhiteSur-gtk-theme/install.sh
-    /zasoby/WhiteSur-gtk-theme/install.sh -t green -l
+    /zasoby/WhiteSur-gtk-theme/install.sh
 else
-    echo "--> Ostrzeżenie: Nie znaleziono motywu WhiteSur GTK."
+    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu WhiteSur GTK w /zasoby/WhiteSur-gtk-theme."
 fi
 
 # Sprawdzamy, czy katalog z motywem ikon istnieje
-if [ -d "/zasoby/Win10Sur-icon-theme" ]; then
+if; then
     echo "--> Instalowanie motywu ikon Win10Sur..."
+    # Nadajemy uprawnienia do wykonania i uruchamiamy instalator motywu
     chmod +x /zasoby/Win10Sur-icon-theme/install.sh
-    /zasoby/Win10Sur-icon-theme/install.sh -a
+    /zasoby/Win10Sur-icon-theme/install.sh
 else
-    echo "--> Ostrzeżenie: Nie znaleziono motywu ikon Win10Sur."
+    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu ikon Win10Sur w /zasoby/Win10Sur-icon-theme."
 fi
 
+# ------------------------------------------------------------------------------
+# --- Krok 2: Kopiowanie plików konfiguracyjnych ---
+# ------------------------------------------------------------------------------
 echo ">>> Kopiowanie domyślnej konfiguracji użytkownika..."
-if [ -d "/konfiguracja" ]; then
-    cp -a /konfiguracja/. /etc/skel/
+
+# Sprawdzamy, czy katalog z konfiguracją istnieje
+if [ -d /konfiguracja ]; then
+    # Kopiujemy całą zawartość (w tym ukryte pliki) do /etc/skel
+    # /etc/skel to szablon dla katalogów domowych nowych użytkowników
+    cp -rT /konfiguracja /etc/skel/
     echo "--> Konfiguracja skopiowana do /etc/skel."
 else
     echo "--> Ostrzeżenie: Katalog /konfiguracja/ nie został znaleziony."
 fi
 
+# ------------------------------------------------------------------------------
+# --- Krok 3: Czyszczenie ---
+# ------------------------------------------------------------------------------
 echo ">>> Czyszczenie plików tymczasowych..."
 rm -rf /zasoby
 rm -rf /konfiguracja
-rm -rf /skrypty
 
 echo ">>> Finalna konfiguracja systemu zakończona pomyślnie."

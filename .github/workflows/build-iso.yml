@@ -1,65 +1,43 @@
-# Nazwa całego procesu (workflow), widoczna w zakładce "Actions" na GitHubie
-name: Build GOST OS ISO
+# Nazwa przepływu pracy widoczna w interfejsie GitHub Actions
+name: Build GOSTOS Debian 13 Live ISO
 
-# Definicja, kiedy ten proces ma się automatycznie uruchamiać
 on:
-  # Uruchom przy każdym pushu (wysłaniu zmian) do gałęzi "main"
+  # Uruchom przy każdym push do gałęzi 'main'
   push:
-    branches: [ "main" ]
-  # Umożliwia ręczne uruchomienie procesu z poziomu interfejsu GitHub
+    branches:
+      - main
+  # Umożliwia ręczne uruchomienie z interfejsu GitHub
   workflow_dispatch:
 
-# Definicja zadań do wykonania
 jobs:
-  build:
-    # Uruchom na najnowszej dostępnej maszynie wirtualnej z Ubuntu
+  build_debian_iso:
+    # Uruchom na standardowym, hostowanym przez GitHub runnerze z systemem Ubuntu
     runs-on: ubuntu-latest
 
-    # Sekwencja kroków do wykonania
     steps:
-      # Krok 1: Pobranie kodu źródłowego z Twojego repozytorium
+      # Krok 1: Pobranie kodu źródłowego repozytorium
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Krok 2: Konfiguracja cachowania, aby przyspieszyć przyszłe buildy
-      - name: Cache live-build directories
-        uses: actions/cache@v4
-        with:
-          # Ścieżki do katalogów, które chcemy zapisać w pamięci podręcznej
-          path: |
-            cache
-            chroot
-          # Unikalny klucz dla cache. Zmieni się tylko, gdy zmienisz listę pakietów lub konfigurację
-          key: ${{ runner.os }}-live-build-${{ hashFiles('**/gostos.list.chroot', '**/config') }}
-          # Klucze zapasowe, jeśli dokładny klucz nie zostanie znaleziony
-          restore-keys: |
-            ${{ runner.os }}-live-build-
-
-      # Krok 3: Upewnij się, że skrypty haków mają uprawnienia do uruchamiania
-      - name: Ensure hooks are executable
-        run: sudo chmod -R +x config/hooks/live/*
-
-      # Krok 4: Główny etap budowania obrazu ISO
-      - name: Configure and build ISO
+      # Krok 2: Budowanie obrazu ISO w izolowanym kontenerze Docker
+      # To jest serce rozwiązania, które deleguje cały proces do kontenera Debian
+      - name: Build Debian Live ISO in Docker Container
         run: |
-          # Instalacja narzędzia live-build i jego zależności
-          echo "INFO: Installing live-build..."
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends live-build
+          # Upewniamy się, że skrypt budujący jest wykonywalny
+          chmod +x build-iso.sh
           
-          # Jawne wczytanie konfiguracji z katalogu auto/
-          echo "INFO: Configuring live-build..."
-          sudo lb config
-          
-          # Uruchomienie właściwego procesu budowania obrazu ISO
-          echo "INFO: Starting the build process..."
-          sudo lb build
+          # Uruchamiamy kontener Docker, który wykona skrypt budujący
+          # --privileged jest niezbędne do operacji systemowych wewnątrz kontenera
+          # -v montuje nasz kod do katalogu /build w kontenerze
+          docker run --rm --privileged \
+            -v "${{ github.workspace }}":/build \
+            -w /build \
+            debian:trixie-slim \
+          ./build-iso.sh
 
-      # Krok 5: Wysłanie gotowego obrazu ISO jako artefaktu do pobrania
+      # Krok 3: Przesłanie zbudowanego obrazu ISO jako artefaktu
       - name: Upload ISO as artifact
         uses: actions/upload-artifact@v4
         with:
-          # Nazwa artefaktu, która będzie widoczna na stronie workflow
-          name: gost-os-iso
-          # Ścieżka do pliku, który ma zostać wysłany
+          name: GOSTOS-debian-trixie-live.iso
           path: live-image-amd64.hybrid.iso
