@@ -12,23 +12,21 @@ echo ">>> Instalowanie motywów..."
 # Sprawdzamy, czy katalog z motywem GTK istnieje
 if [ -d "/zasoby/WhiteSur-gtk-theme" ]; then
     echo "--> Instalowanie motywu WhiteSur GTK..."
-    # POPRAWKA: Najpierw nadajemy uprawnienia do wykonania
     chmod +x /zasoby/WhiteSur-gtk-theme/install.sh
-    # A dopiero potem go uruchamiamy
-    /zasoby/WhiteSur-gtk-theme/install.sh --silent-mode -d /usr/share/themes
+    # POPRAWKA: Dodajemy parametry instalacji
+    /zasoby/WhiteSur-gtk-theme/install.sh -t green -l
 else
-    echo "--> Ostrzeżenie: Nie znaleziono motywu WhiteSur GTK w /zasoby/WhiteSur-gtk-theme."
+    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu WhiteSur GTK."
 fi
 
 # Sprawdzamy, czy katalog z motywem ikon istnieje
 if [ -d "/zasoby/Win10Sur-icon-theme" ]; then
     echo "--> Instalowanie motywu ikon Win10Sur..."
-    # POPRAWKA: Najpierw nadajemy uprawnienia do wykonania
     chmod +x /zasoby/Win10Sur-icon-theme/install.sh
-    # A dopiero potem go uruchamiamy
-    /zasoby/Win10Sur-icon-theme/install.sh --silent-mode -d /usr/share/icons
+    # POPRAWKA: Dodajemy parametr instalacji
+    /zasoby/Win10Sur-icon-theme/install.sh -a
 else
-    echo "--> Ostrzeżenie: Nie znaleziono motywu ikon Win10Sur w /zasoby/Win10Sur-icon-theme."
+    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu ikon Win10Sur."
 fi
 
 # ------------------------------------------------------------------------------
@@ -36,10 +34,7 @@ fi
 # ------------------------------------------------------------------------------
 echo ">>> Kopiowanie domyślnej konfiguracji użytkownika..."
 
-# Sprawdzamy, czy katalog z konfiguracją istnieje
 if [ -d "/konfiguracja" ]; then
-    # Kopiujemy całą zawartość do /etc/skel (szablon dla nowych użytkowników)
-    # Użyłem opcji -a (archive) zamiast -r, bo lepiej zachowuje uprawnienia plików
     cp -a /konfiguracja/. /etc/skel/
     echo "--> Konfiguracja skopiowana do /etc/skel."
 else
