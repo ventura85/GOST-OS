@@ -1,43 +1,26 @@
-# Nazwa przepływu pracy widoczna w interfejsie GitHub Actions
-name: Build GOSTOS Debian 13 Live ISO
+name: Build GOST OS ISO
 
 on:
-  # Uruchom przy każdym push do gałęzi 'main'
   push:
-    branches:
-      - main
-  # Umożliwia ręczne uruchomienie z interfejsu GitHub
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
-  build_debian_iso:
-    # Uruchom na standardowym, hostowanym przez GitHub runnerze z systemem Ubuntu
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      # Krok 1: Pobranie kodu źródłowego repozytorium
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Krok 2: Budowanie obrazu ISO w izolowanym kontenerze Docker
-      # To jest serce rozwiązania, które deleguje cały proces do kontenera Debian
-      - name: Build Debian Live ISO in Docker Container
+      - name: Build ISO using live-build
         run: |
-          # Upewniamy się, że skrypt budujący jest wykonywalny
-          chmod +x build-iso.sh
-          
-          # Uruchamiamy kontener Docker, który wykona skrypt budujący
-          # --privileged jest niezbędne do operacji systemowych wewnątrz kontenera
-          # -v montuje nasz kod do katalogu /build w kontenerze
-          docker run --rm --privileged \
-            -v "${{ github.workspace }}":/build \
-            -w /build \
-            debian:trixie-slim \
-          ./build-iso.sh
-
-      # Krok 3: Przesłanie zbudowanego obrazu ISO jako artefaktu
+          sudo apt-get update
+          sudo apt-get install -y live-build
+          sudo lb build
+      
       - name: Upload ISO as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GOSTOS-debian-trixie-live.iso
+          name: gost-os-iso
           path: live-image-amd64.hybrid.iso

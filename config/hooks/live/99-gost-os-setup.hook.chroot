@@ -1,51 +1,35 @@
 #!/bin/sh
-# Zatrzymuje skrypt w przypadku jakiegokolwiek błędu
 set -e
 
 echo ">>> Rozpoczynanie finalnej konfiguracji systemu..."
 
-# ------------------------------------------------------------------------------
-# --- Krok 1: Instalacja motywów z katalogu /zasoby ---
-# ------------------------------------------------------------------------------
-echo ">>> Instalowanie motywów..."
+# --- Krok 1: Uruchomienie skryptów z /skrypty ---
+# Wewnątrz chroot, pliki z includes.chroot lądują w głównym katalogu /
 
-# Sprawdzamy, czy katalog z motywem GTK istnieje
-if [ -d "/zasoby/WhiteSur-gtk-theme" ]; then
-    echo "--> Instalowanie motywu WhiteSur GTK..."
-    chmod +x /zasoby/WhiteSur-gtk-theme/install.sh
-    # POPRAWKA: Dodajemy parametry instalacji
-    /zasoby/WhiteSur-gtk-theme/install.sh -t green -l
+# Sprawdzamy, czy skrypt 02-instalacja-motywow.sh istnieje
+if [ -f "/skrypty/02-instalacja-motywow.sh" ]; then
+    echo "--> Uruchamianie instalacji motywów..."
+    # Nadajemy uprawnienia i uruchamiamy
+    chmod +x /skrypty/02-instalacja-motywow.sh
+    /skrypty/02-instalacja-motywow.sh
 else
-    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu WhiteSur GTK."
+    echo "--> Ostrzeżenie: Nie znaleziono skryptu 02-instalacja-motywow.sh."
 fi
 
-# Sprawdzamy, czy katalog z motywem ikon istnieje
-if [ -d "/zasoby/Win10Sur-icon-theme" ]; then
-    echo "--> Instalowanie motywu ikon Win10Sur..."
-    chmod +x /zasoby/Win10Sur-icon-theme/install.sh
-    # POPRAWKA: Dodajemy parametr instalacji
-    /zasoby/Win10Sur-icon-theme/install.sh -a
+# Sprawdzamy, czy skrypt 03-kopiowanie-konfiguracji.sh istnieje
+if [ -f "/skrypty/03-kopiowanie-konfiguracji.sh" ]; then
+    echo "--> Uruchamianie kopiowania konfiguracji..."
+    # Nadajemy uprawnienia i uruchamiamy
+    chmod +x /skrypty/03-kopiowanie-konfiguracji.sh
+    /skrypty/03-kopiowanie-konfiguracji.sh
 else
-    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu ikon Win10Sur."
+    echo "--> Ostrzeżenie: Nie znaleziono skryptu 03-kopiowanie-konfiguracji.sh."
 fi
 
-# ------------------------------------------------------------------------------
-# --- Krok 2: Kopiowanie plików konfiguracyjnych ---
-# ------------------------------------------------------------------------------
-echo ">>> Kopiowanie domyślnej konfiguracji użytkownika..."
-
-if [ -d "/konfiguracja" ]; then
-    cp -a /konfiguracja/. /etc/skel/
-    echo "--> Konfiguracja skopiowana do /etc/skel."
-else
-    echo "--> Ostrzeżenie: Katalog /konfiguracja/ nie został znaleziony."
-fi
-
-# ------------------------------------------------------------------------------
-# --- Krok 3: Czyszczenie ---
-# ------------------------------------------------------------------------------
+# --- Krok 2: Czyszczenie ---
 echo ">>> Czyszczenie plików tymczasowych..."
 rm -rf /zasoby
 rm -rf /konfiguracja
+rm -rf /skrypty
 
 echo ">>> Finalna konfiguracja systemu zakończona pomyślnie."
