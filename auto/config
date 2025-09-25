@@ -1,0 +1,51 @@
+#!/bin/sh
+
+# Konfiguracja dla lb_config
+# Ten plik jest automatycznie wczytywany przez 'lb config'
+
+lb config noauto \
+    # --- Konfiguracja podstawowa ---
+    # Krytyczne: Używaj trybu Debiana, aby uniknąć dziedziczenia z Ubuntu
+    --mode "debian" \
+    # Definicja dystrybucji docelowej i nadrzędnej
+    --distribution "trixie" \
+    --parent-distribution "trixie" \
+    --parent-debian-installer-distribution "trixie" \
+    # Obszary repozytorium. 'non-free-firmware' jest kluczowe dla nowoczesnego sprzętu.
+    --archive-areas "main contrib non-free non-free-firmware" \
+    # Włącz aktualizacje bezpieczeństwa i standardowe
+    --security "true" \
+    --updates "true" \
+    --backports "false" \
+    \
+    # --- Architektura i jądro ---
+    --architectures "amd64" \
+    # Jawne zdefiniowanie pakietu jądra, aby uniknąć 'linux-generic' z Ubuntu
+    --linux-packages "linux-image-amd64" \
+    --linux-flavours "amd64" \
+    \
+    # --- Konfiguracja systemu Live ---
+    # Kluczowe: Wymuś użycie 'live-boot' Debiana zamiast 'casper' z Ubuntu
+    --initramfs "live-boot" \
+    --initsystem "systemd" \
+    \
+    # --- Konfiguracja obrazu binarnego (ISO) ---
+    # Twórz obraz hybrydowy, który działa z DVD i USB
+    --binary-images "iso-hybrid" \
+    --bootloader "grub-pc" \
+    # Metadane obrazu ISO
+    --iso-application "GOSTOS Debian 13 Trixie" \
+    --iso-publisher "GOSTOS CI/CD via GitHub Actions" \
+    --iso-volume "GOSTOS_TRIXIE" \
+    \
+    # --- Dodatkowe komponenty ---
+    --memtest "memtest86+" \
+    # Włącz instalator Debiana w trybie live z interfejsem graficznym
+    --debian-installer "live" \
+    --debian-installer-gui "true" \
+    \
+    # --- Ustawienia APT ---
+    --apt-recommends "true" \
+    --apt-secure "true" \
+    --apt-source-archives "true" \
+    "${@}"
