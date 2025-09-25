@@ -1,9 +1,8 @@
 #!/bin/sh
-# 'e' zatrzymuje skrypt w przypadku błędu
-# 'x' włącza tryb debugowania dla TEGO skryptu
-set -ex
+# Zatrzymuje skrypt w przypadku błędu. Tryb debug (-x) już nie jest potrzebny.
+set -e
 
-echo ">>> Rozpoczynanie finalnej konfiguracji systemu (TRYB DEBUG)..."
+echo ">>> Rozpoczynanie finalnej konfiguracji systemu..."
 
 # ------------------------------------------------------------------------------
 # --- Krok 1: Instalacja motywów z katalogu /zasoby ---
@@ -11,23 +10,23 @@ echo ">>> Rozpoczynanie finalnej konfiguracji systemu (TRYB DEBUG)..."
 echo ">>> Instalowanie motywów..."
 
 if [ -d "/zasoby/WhiteSur-gtk-theme" ]; then
-    echo "--> Instalowanie motywu WhiteSur GTK (z wymuszonym debugowaniem)..."
+    echo "--> Instalowanie motywu WhiteSur GTK do /usr/share/themes..."
     sed -i 's/sudo //g' /zasoby/WhiteSur-gtk-theme/install.sh
     chmod +x /zasoby/WhiteSur-gtk-theme/install.sh
-    # Uruchamiamy instalator przez 'bash -x', aby zobaczyć jego wewnętrzne komendy
-    bash -x /zasoby/WhiteSur-gtk-theme/install.sh
+    # Uruchamiamy instalator z flagą -d wskazującą lokalizację systemową
+    /zasoby/WhiteSur-gtk-theme/install.sh -d /usr/share/themes
 else
-    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu WhiteSur GTK w /zasoby/WhiteSur-gtk-theme."
+    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu WhiteSur GTK."
 fi
 
 if [ -d "/zasoby/Win10Sur-icon-theme" ]; then
-    echo "--> Instalowanie motywu ikon Win10Sur (z wymuszonym debugowaniem)..."
+    echo "--> Instalowanie motywu ikon Win10Sur do /usr/share/icons..."
     sed -i 's/sudo //g' /zasoby/Win10Sur-icon-theme/install.sh
     chmod +x /zasoby/Win10Sur-icon-theme/install.sh
-    # Uruchamiamy instalator przez 'bash -x', aby zobaczyć jego wewnętrzne komendy
-    bash -x /zasoby/Win10Sur-icon-theme/install.sh
+    # Uruchamiamy instalator z flagą -d wskazującą lokalizację systemową
+    /zasoby/Win10Sur-icon-theme/install.sh -d /usr/share/icons
 else
-    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu ikon Win10Sur w /zasoby/Win10Sur-icon-theme."
+    echo "--> Ostrzeżenie: Nie znaleziono instalatora motywu ikon Win10Sur."
 fi
 
 # ------------------------------------------------------------------------------
