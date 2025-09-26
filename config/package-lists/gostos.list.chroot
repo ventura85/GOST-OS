@@ -15,12 +15,13 @@ mugshot
 lightdm
 lightdm-gtk-greeter-settings
 
-# --- Zależności i Sterowniki ---
-gtk2-engines-murrine
-
-# --- ZALEŻNOŚCI POTRZEBNE DO ZBUDOWANIA MOTYWÓW ---
-sassc
-libglib2.0-dev
-libxml2-utils
-# Dodajemy pakiet zbiorczy z podstawowymi narzędziami do kompilacji (np. make, gcc)
+# --- Zależności Podstawowe ---
+# To jest potrzebne do budowania, ale może być zbędne w finalnym systemie.
+# Jeśli nie używasz tych narzędzi do innych celów, możesz je usunąć, 
+# ponieważ są potrzebne do kompilacji motywu, ale sama kompilacja 
+# odbywa się w postinst, który ma dostęp do sassc (zależność gost-theme).
+# Dla bezpieczeństwa, zostawiamy build-essential do kompilacji innych rzeczy.
 build-essential
+
+# --- Nasz niestandardowy pakiet z motywem ---
+gost-theme

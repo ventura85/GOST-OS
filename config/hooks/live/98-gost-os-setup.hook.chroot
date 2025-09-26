@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# Hak live-build dla GOST OS
+# 98-gost-os-user-setup.hook.chroot
+#
+# Zadanie: Kopiowanie niestandardowej konfiguracji z config/includes.chroot/konfiguracja 
+# do /etc/skel/, aby wszyscy nowi użytkownicy (w tym użytkownik live)
+# otrzymali nasze domyślne ustawienia i pliki (np. konfiguracja XFCE, pliki .config, itp.).
+
+set -e
+
+echo ">>> Uruchamiam hak 98-gost-os-user-setup.hook.chroot"
+echo ">>> Kopiowanie domyślnej konfiguracji użytkownika do /etc/skel..."
+
+# /konfiguracja to w środowisku chroot folder, który był config/includes.chroot/konfiguracja
+if [ -d "/konfiguracja" ]; then
+    # cp -rT kopiuje zawartość katalogu źródłowego do docelowego.
+    # W ten sposób zawartość /konfiguracja ląduje bezpośrednio w /etc/skel/
+    cp -rT /konfiguracja /etc/skel/
+    
+    echo "--> Konfiguracja użytkownika skopiowana pomyślnie do /etc/skel/."
+else
+    # To ostrzeżenie pojawi się, jeśli folder konfiguracji jest pusty lub go brakuje
+    echo "--> Ostrzeżenie: Katalog /konfiguracja/ (config/includes.chroot/konfiguracja) nie został znaleziony."
+fi
+
+# Zapewnienie poprawnych uprawnień dla skopiowanych plików użytkownika
+# Jest to często konieczne, aby nowy użytkownik mógł bez problemu edytować swoje pliki.
+chown -R root:root /etc/skel
+chmod -R u=rwX,go=rX /etc/skel
+
+echo ">>> Zakończono hak 98-gost-os-user-setup.hook.chroot"
+
+# To musi być ostatnia linia w hakach live-build
+exit 0

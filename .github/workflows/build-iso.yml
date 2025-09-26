@@ -1,42 +1,55 @@
-# Nazwa przepływu pracy widoczna w interfejsie GitHub Actions
-name: Build GOSTOS Debian 13 Live ISO
+name: Build and Test GOST OS ISO
 
 on:
-  # Uruchom przy każdym push do gałęzi 'main'
   push:
-    branches:
-      - main
-  # Umożliwia ręczne uruchomienie z interfejsu GitHub
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
-  build_debian_iso:
-    # Uruchom na standardowym, hostowanym przez GitHub runnerze z systemem Ubuntu
+  build-package:
     runs-on: ubuntu-latest
-
     steps:
-      # Krok 1: Pobranie kodu źródłowego repozytorium
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Krok 2: Budowanie obrazu ISO w izolowanym kontenerze Docker
-      # To jest serce rozwiązania, które deleguje cały proces do kontenera Debian
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential debhelper dh-make
+
+      - name: Build the theme .deb package
+        run: |
+          cd gost-theme-package/
+          dpkg-buildpackage -us -uc
+          
+      - name: Upload .deb package as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gost-theme-deb
+          path: ./*.deb
+
+  build-iso:
+    needs: build-package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download .deb package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: gost-theme-deb
+          # Zmieniamy ścieżkę na domyślnie skanowaną przez live-build
+          # Live-build skanuje katalog packages, a nie packages.chroot
+          path: config/packages/
+
       - name: Build Debian Live ISO in Docker Container
         run: |
-          # Upewniamy się, że skrypt budujący jest wykonywalny
           chmod +x build-iso.sh
-          
-          # Uruchamiamy kontener Docker, który wykona skrypt budujący
-          # --privileged jest niezbędne do operacji systemowych wewnątrz kontenera
-          # -v montuje nasz kod do katalogu /build w kontenerze
           docker run --rm --privileged \
             -v "${{ github.workspace }}":/build \
             -w /build \
             debian:trixie-slim \
-          ./build-iso.sh
-
-      # Krok 3: Przesłanie zbudowanego obrazu ISO jako artefaktu
-      - name: Upload ISO as artifact
+            ./build-iso.sh
+                  - name: Upload ISO as artifact
         uses: actions/upload-artifact@v4
         with:
           name: GOSTOS-debian-trixie-live.iso
