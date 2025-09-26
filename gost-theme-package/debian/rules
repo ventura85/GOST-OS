@@ -1,0 +1,11 @@
+#!/usr/bin/make -f
+# Simple debian/rules for debhelper (compatibility level 13)
+
+# Uncomment this to turn on verbose mode.
+# export DH_VERBOSE = 1
+
+export DH_OPTIONS = -v
+DEB_BUILD_OPTIONS = nocheck
+
+%:
+	dh $@
