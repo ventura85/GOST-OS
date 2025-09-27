@@ -1,0 +1,20 @@
+# Ignore live-build artifacts
+/live-build-config/
+/*.iso
+/*.log
+/binary/
+/chroot/
+/.stage/
+
+# Ignore our custom-built debian package
+*.deb
+/config/packages.chroot/*.deb
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore temporary editor files
+*~
+*.swp
+*.swo
