@@ -1,8 +1,10 @@
-#!/bin.sh
+#!/bin/sh
 set -e
 
 if [ "$1" = "configure" ]; then
-    # Kompilujemy schematy GSettings
+    # Jedynym zadaniem tego skryptu jest zaktualizowanie bazy danych schematów,
+    # aby system "zobaczył" nasze domyślne ustawienia motywu.
+    # Kompilacja motywu odbyła się już na etapie budowania pakietu.
     glib-compile-schemas /usr/share/glib-2.0/schemas/
 fi
 
