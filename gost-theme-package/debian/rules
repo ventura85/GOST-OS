@@ -1,25 +1,18 @@
 #!/usr/bin/make -f
-# Simple debian/rules for debhelper (compatibility level 13)
 
-# Uncomment this to turn on verbose mode.
-# export DH_VERBOSE = 1
-
-export DH_OPTIONS = -v
+# Zobacz debhelper(7) dla szczegółów
+export DH_VERBOSE = 1
+DEB_BUILD_MAINT_OPTIONS = hardening=+all
 DEB_BUILD_OPTIONS = nocheck
 
+# --- POPRAWIONA LOGIKA BUDOWANIA ---
 override_dh_auto_build:
+	# Najpierw wykonaj standardowe akcje budowania (jeśli jakieś są)
 	dh_auto_build
-	# Kompilacja SASS do CSS
-	# Używamy ścieżki, która będzie dostępna w chroot podczas budowania.
-	# Pliki są instalowane do debian/gost-theme, a następnie pakowane.
-	# Musimy uruchomić kompilację, zanim pliki zostaną spakowane.
-	# dh_install kopiuje pliki do debian/gost-theme. Uruchomimy to po dh_install.
-
-override_dh_install:
-	dh_install
-	# Teraz, gdy pliki są w debian/gost-theme, możemy je skompilować
-	if [ -f debian/gost-theme/usr/share/themes/WhiteSur/parse-sass.sh ]; then
-	    (cd debian/gost-theme/usr/share/themes/WhiteSur && ./parse-sass.sh)
+	# Następnie skompiluj style SASS do CSS, uruchamiając skrypt z motywu
+	# To jest prawidłowe miejsce na kompilację
+	if [ -f usr/share/themes/WhiteSur/parse-sass.sh ]; then \
+	    (cd usr/share/themes/WhiteSur && ./parse-sass.sh); \
 	fi
 
 %:
