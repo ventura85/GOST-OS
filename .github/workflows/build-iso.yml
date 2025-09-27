@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
+  # --- ZADANIE 1: Budowanie pakietu .deb z motywem ---
   build-package:
     runs-on: ubuntu-latest
     steps:
@@ -26,7 +27,9 @@ jobs:
           name: gost-theme-deb
           path: ./*.deb
 
+  # --- ZADANIE 2: Budowanie obrazu ISO z użyciem pakietu ---
   build-iso:
+    # To zadanie uruchomi się dopiero po sukcesie zadania 'build-package'
     needs: build-package
     runs-on: ubuntu-latest
     steps:
@@ -37,7 +40,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: gost-theme-deb
-          path: config/packages/
+          # POPRAWIONA ŚCIEŻKA: live-build szuka pakietów w tym konkretnym katalogu
+          path: config/packages.chroot/
 
       - name: Build Debian Live ISO in Docker Container
         run: |
