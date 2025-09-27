@@ -2,10 +2,6 @@
 set -e
 
 if [ "$1" = "configure" ]; then
-    # Kompilujemy style motywu przy użyciu jego własnego skryptu
-    if [ -f "/usr/share/themes/WhiteSur/parse-sass.sh" ]; then
-        /usr/share/themes/WhiteSur/parse-sass.sh
-    fi
     # Kompilujemy schematy GSettings
     glib-compile-schemas /usr/share/glib-2.0/schemas/
 fi

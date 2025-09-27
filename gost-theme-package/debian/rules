@@ -7,5 +7,20 @@
 export DH_OPTIONS = -v
 DEB_BUILD_OPTIONS = nocheck
 
+override_dh_auto_build:
+	dh_auto_build
+	# Kompilacja SASS do CSS
+	# Używamy ścieżki, która będzie dostępna w chroot podczas budowania.
+	# Pliki są instalowane do debian/gost-theme, a następnie pakowane.
+	# Musimy uruchomić kompilację, zanim pliki zostaną spakowane.
+	# dh_install kopiuje pliki do debian/gost-theme. Uruchomimy to po dh_install.
+
+override_dh_install:
+	dh_install
+	# Teraz, gdy pliki są w debian/gost-theme, możemy je skompilować
+	if [ -f debian/gost-theme/usr/share/themes/WhiteSur/parse-sass.sh ]; then
+	    (cd debian/gost-theme/usr/share/themes/WhiteSur && ./parse-sass.sh)
+	fi
+
 %:
 	dh $@
