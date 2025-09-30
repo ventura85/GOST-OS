@@ -1,9 +1,0 @@
-[Desktop Entry]
-Version=1.1
-Type=Application
-Name=Obrazy
-Comment=Przeglądaj i zarządzaj swoimi zdjęciami i grafikami.
-Icon=folder-pictures
-Exec=thunar /home/kamil/Obrazy
-Actions=
-Categories=X-XFCE;X-Xfce-Toplevel;menulibre-moje-dokumenty;
