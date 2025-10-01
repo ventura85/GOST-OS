@@ -1,15 +1,27 @@
 #!/bin/sh
 set -e
 
-echo ">>> Kopiowanie domyślnej konfiguracji użytkownika do /etc/skel..."
+echo ">>> Uruchamiam finalne poprawki systemowe..."
+
+# Kopiowanie konfiguracji użytkownika do /etc/skel
 if [ -d "/konfiguracja" ]; then
-    cp -rT /konfiguracja /etc/skel/
+    cp -a /konfiguracja/. /etc/skel/
+    echo "--> Skopiowano konfigurację do /etc/skel."
 fi
 
-echo ">>> Wyłączanie konfliktu z gnome-keyring..."
-CONFLICT_FILE="/etc/xdg/autostart/gnome-keyring-secrets.desktop"
-if [ -f "$CONFLICT_FILE" ]; then
-    echo "Hidden=true" >> "$CONFLICT_FILE"
-fi
+# Wyłączanie konfliktujących usług autostartu
+echo ">>> Wyłączanie konfliktujących agentów (GNOME i MATE)..."
 
+# Lista plików autostartu, które powodują konflikt z agentem XFCE
+CONFLICT_FILES="/etc/xdg/autostart/gnome-keyring-secrets.desktop /etc/xdg/autostart/polkit-mate-authentication-agent-1.desktop"
+
+for FILE in $CONFLICT_FILES; do
+    if [ -f "$FILE" ]; then
+        # Dodajemy 'Hidden=true', aby menedżer sesji zignorował ten plik
+        echo "Hidden=true" >> "$FILE"
+        echo "--> Ukryto $FILE"
+    fi
+done
+
+echo ">>> Finalne poprawki zakończone."
 exit 0
