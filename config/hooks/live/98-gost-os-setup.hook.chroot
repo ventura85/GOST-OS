@@ -1,34 +1,15 @@
 #!/bin/sh
 set -e
 
-echo ">>> Uruchamiam hak 98-gost-os-setup.hook.chroot"
-echo ">>> Krok 1: Kopiowanie domyślnej konfiguracji użytkownika do /etc/skel..."
-
+echo ">>> Kopiowanie domyślnej konfiguracji użytkownika do /etc/skel..."
 if [ -d "/konfiguracja" ]; then
     cp -rT /konfiguracja /etc/skel/
-    echo "--> Konfiguracja użytkownika skopiowana pomyślnie do /etc/skel/."
-else
-    echo "--> Ostrzeżenie: Katalog /konfiguracja/ nie został znaleziony."
 fi
 
-echo ">>> Krok 2: Ustawianie poprawnych uprawnień dla /etc/skel..."
-chown -R root:root /etc/skel
-chmod -R u=rwX,go=rX /etc/skel
+echo ">>> Wyłączanie konfliktu z gnome-keyring..."
+CONFLICT_FILE="/etc/xdg/autostart/gnome-keyring-secrets.desktop"
+if [ -f "$CONFLICT_FILE" ]; then
+    echo "Hidden=true" >> "$CONFLICT_FILE"
+fi
 
-# --- NOWA, KLUCZOWA SEKCJA ---
-echo ">>> Krok 3: Zapobieganie konfliktowi agentów PolicyKit..."
-
-# Lista plików autostartu, które mogą powodować konflikt z agentem XFCE
-CONFLICT_FILES="/etc/xdg/autostart/gnome-keyring-pkcs11.desktop /etc/xdg/autostart/gnome-keyring-secrets.desktop /etc/xdg/autostart/gnome-keyring-ssh.desktop"
-
-for FILE in $CONFLICT_FILES; do
-    if [ -f "$FILE" ]; then
-        # Dodajemy 'Hidden=true' do pliku .desktop, co jest standardowym sposobem
-        # na wyłączenie go z autostartu bez usuwania samego pliku.
-        echo "Hidden=true" >> "$FILE"
-        echo "--> Ukryto autostart dla $FILE"
-    fi
-done
-
-echo ">>> Zakończono hak 98-gost-os-setup.hook.chroot"
 exit 0
