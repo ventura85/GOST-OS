@@ -1,0 +1,4 @@
+DISTRIB_ID="GOSTOS"
+DISTRIB_RELEASE="1.0"
+DISTRIB_CODENAME="trixie"
+DISTRIB_DESCRIPTION="GOST OS — system operacyjny oparty na Debian 13 Trixie"
