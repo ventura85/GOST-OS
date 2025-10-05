@@ -1,0 +1,74 @@
+name: Build GOST OS ISO
+
+on:
+  push:
+    branches: [ "main", "finalna-konfiguracja", "fix/live-build-fixes" ]
+  workflow_dispatch:
+
+jobs:
+  # =========================
+  # JOB 1: Build theme .deb
+  # =========================
+  build-theme:
+    name: Build GOST Theme Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential debhelper dh-make sassc dpkg-dev
+
+      - name: Run theme build script
+        run: |
+          chmod +x skrypty/build-theme.sh
+          ./skrypty/build-theme.sh
+
+      - name: Upload built .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: gost-theme-deb
+          path: config/packages.chroot/*.deb
+
+  # =========================
+  # JOB 2: Build ISO
+  # =========================
+  build-iso:
+    name: Build GOST OS ISO
+    needs: build-theme
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download built .deb package
+        uses: actions/download-artifact@v4
+        with:
+          name: gost-theme-deb
+          path: config/packages.chroot/
+
+      - name: Install ISO build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y live-build systemd-container grub-pc-bin xorriso squashfs-tools debootstrap git ca-certificates
+
+      - name: Run live-build (with hooks and includes)
+        run: |
+          sudo lb clean
+          sudo lb config
+          sudo lb build 2>&1 | tee build.log
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GOSTOS-debian-trixie-live.iso
+          path: live-image-amd64.hybrid.iso
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gostos-build-logs
+          path: build.log
