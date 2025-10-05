@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./includes.chroot/zasoby/branding/logo.png" alt="GOST OS Logo" width="250"/>
+  <img src="resources/branding/logo.png" width="160" alt="Gost-OS Logo">
 </p>
 
 <h1 align="center">GOST OS</h1>
