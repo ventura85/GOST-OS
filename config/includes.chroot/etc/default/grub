@@ -1,0 +1,18 @@
+# GOST OS — konfiguracja ekranu startowego GRUB
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="GOST OS"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"
+GRUB_CMDLINE_LINUX=""
+
+# Ustawienia wyglądu GRUB
+GRUB_BACKGROUND="/usr/share/images/desktop-base/gostos-grub-background.png"
+GRUB_GFXMODE=1920x1080,auto
+GRUB_GFXPAYLOAD_LINUX=keep
+
+# Kolory menu
+GRUB_COLOR_NORMAL="light-gray/black"
+GRUB_COLOR_HIGHLIGHT="black/light-gray"
+
+# Czcionka i motyw (jeśli dostępne)
+GRUB_THEME=""

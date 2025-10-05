@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="xfce4-panel" version="1.0">
+  <property name="panels" type="array">
+    <value type="int" value="1"/>
+  </property>
+  <property name="panels" type="empty">
+    <property name="panel-1" type="empty">
+      <property name="plugin-ids" type="array">
+        <value type="int" value="1"/>
+        <value type="int" value="2"/>
+        <value type="int" value="3"/>
+        <value type="int" value="4"/>
+      </property>
+      <property name="length" type="int" value="100"/>
+      <property name="position" type="string" value="p=8;x=0;y=0"/>
+      <property name="size" type="int" value="32"/>
+    </property>
+  </property>
+</channel>

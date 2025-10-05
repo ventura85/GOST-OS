@@ -1,61 +1,50 @@
 #!/bin/bash
-set -e
+set -eux
 
-# ==============================================
-#  GOST-OS THEME PACKAGE BUILDER (final version)
-# ==============================================
-# Buduje paczkę .deb z motywem graficznym GOST OS
-# i umieszcza ją w katalogu config/packages.chroot,
-# by live-build mógł ją automatycznie zainstalować.
+# ==========================================================
+#   GOST OS – Skrypt budujący pakiet .deb z motywem systemu
+# ==========================================================
 
-THEME_SRC="gost-theme-package"
+THEME_DIR="gost-theme-package"
 OUTPUT_DIR="config/packages.chroot"
 
 echo "🔧 [GOST-OS] Rozpoczynam budowanie pakietu motywu..."
-echo "Źródło: $THEME_SRC"
+echo "Źródło: $THEME_DIR"
 echo "Cel: $OUTPUT_DIR"
 echo "----------------------------------------------"
 
-# 1️⃣ Sprawdź, czy katalog źródłowy istnieje
-if [ ! -d "$THEME_SRC" ]; then
-    echo "❌ Błąd: brak katalogu $THEME_SRC"
-    exit 1
+# 1️⃣ Sprawdź, czy katalog z motywem istnieje
+if [ ! -d "$THEME_DIR" ]; then
+  echo "❌ Nie znaleziono katalogu $THEME_DIR!"
+  exit 1
 fi
 
-# 2️⃣ Usuń poprzednie buildy, jeśli istnieją
-rm -f ./*.deb || true
+# 2️⃣ Przejdź do katalogu z motywem
+cd "$THEME_DIR"
 
-# 3️⃣ Przejdź do katalogu pakietu
-cd "$THEME_SRC"
+# 3️⃣ Nadaj uprawnienia do pliku rules
+chmod +x debian/rules || true
 
-# 4️⃣ Usuń stare buildy (czystość)
-rm -rf build/ ../*.deb || true
-
-# 5️⃣ Buduj pakiet (bez podpisywania)
+# 4️⃣ Zbuduj pakiet (bez podpisywania)
 echo "📦 Buduję pakiet .deb..."
-dpkg-buildpackage -us -uc
+dpkg-buildpackage -us -uc || {
+  echo "❌ Błąd podczas budowania pakietu motywu."
+  exit 1
+}
 
-# 6️⃣ Wróć do głównego katalogu repo
+# 5️⃣ Wróć do głównego katalogu
 cd ..
 
-# 7️⃣ Znajdź najnowszy zbudowany pakiet (dowolna nazwa)
-echo "📦 Szukam pakietów .deb w katalogu:"
-ls -lh ./*.deb || echo "Brak plików .deb w katalogu!"
-DEB_FILE=$(ls -1t ./*.deb 2>/dev/null | head -n 1)
+# 6️⃣ Znajdź wygenerowany plik .deb i przenieś go do repozytorium
+DEB_FILE=$(find . -maxdepth 1 -type f -name "*.deb" | head -n 1 || true)
 
-if [ -z "$DEB_FILE" ]; then
-    echo "❌ Nie znaleziono pliku .deb! Budowa nie powiodła się."
-    exit 1
+if [ -n "$DEB_FILE" ]; then
+  mkdir -p "$OUTPUT_DIR"
+  mv "$DEB_FILE" "$OUTPUT_DIR/"
+  echo "✅ Pakiet przeniesiony do $OUTPUT_DIR/"
+else
+  echo "❌ Nie znaleziono pliku .deb! Budowa nie powiodła się."
+  exit 1
 fi
 
-echo "✅ Zbudowano: $DEB_FILE"
-
-# 8️⃣ Utwórz katalog docelowy (jeśli go brak)
-mkdir -p "$OUTPUT_DIR"
-
-# 9️⃣ Skopiuj .deb do packages.chroot/
-cp "$DEB_FILE" "$OUTPUT_DIR/"
-
-echo "✅ Skopiowano do: $OUTPUT_DIR/$DEB_FILE"
-echo "----------------------------------------------"
-echo "🎉 Gotowe! Motyw GOST OS będzie zainstalowany w systemie live."
+echo "🎉 Pakiet motywu został zbudowany i przeniesiony pomyślnie."

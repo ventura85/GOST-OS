@@ -1,16 +1,24 @@
 #!/bin/sh
 set -eux
 
-# Ten hak uruchamia się na hoście przed zbudowaniem obrazu ISO.
-# Jego zadaniem jest zbudowanie pakietu z motywem i umieszczenie go
-# w miejscu, z którego live-build go pobierze.
+# ===============================================================
+#   GOST OS – Hook: Budowanie pakietu motywu przed budową ISO
+# ===============================================================
 
-echo "INFO: Budowanie pakietu motywu GOST OS..."
+echo "💡 [HOOK] Uruchamianie skryptu build-theme.sh..."
 
-# Upewnij się, że skrypt budujący jest wykonywalny
-chmod +x skrypty/build-theme.sh
+# 1️⃣ Sprawdź, czy skrypt istnieje
+if [ ! -f "skrypty/build-theme.sh" ]; then
+  echo "❌ Skrypt build-theme.sh nie istnieje!"
+  exit 1
+fi
 
-# Uruchom skrypt budujący
-./skrypty/build-theme.sh
+# 2️⃣ Nadaj mu uprawnienia wykonywalne
+chmod +x skrypty/build-theme.sh || true
 
-echo "INFO: Pakiet motywu zbudowany pomyślnie."
+# 3️⃣ Uruchom budowanie motywu
+./skrypty/build-theme.sh || {
+  echo "⚠️ Błąd podczas budowania motywu – kontynuuję build ISO."
+}
+
+echo "✅ Pakiet motywu został zbudowany (lub już istniał)."

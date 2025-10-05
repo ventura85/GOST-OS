@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eux
+
+echo "Aktualizacja konfiguracji GRUB z niestandardowym tłem..."
+update-grub || true

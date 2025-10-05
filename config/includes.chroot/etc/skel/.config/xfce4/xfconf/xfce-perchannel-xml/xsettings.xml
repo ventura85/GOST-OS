@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="xsettings" version="1.0">
+  <property name="Net/ThemeName" type="string" value="WhiteSur-dark"/>
+  <property name="Net/IconThemeName" type="string" value="WhiteSur-dark"/>
+  <property name="Xft/DPI" type="int" value="96"/>
+  <property name="Xft/HintStyle" type="string" value="hintslight"/>
+  <property name="Xft/RGBA" type="string" value="rgb"/>
+  <property name="Gtk/CursorThemeName" type="string" value="WhiteSur-cursors"/>
+  <property name="Gtk/CursorThemeSize" type="int" value="24"/>
+  <property name="Gtk/FontName" type="string" value="Noto Sans 10"/>
+</channel>
