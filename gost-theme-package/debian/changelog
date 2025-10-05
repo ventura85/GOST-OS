@@ -1,0 +1,6 @@
+gost-theme (1.0) stable; urgency=low
+
+  * Initial release of the GOST OS theme package (WhiteSur GTK / Win10Sur Icons).
+  * Includes GSettings override and post-installation setup scripts.
+
+ -- GOST OS Project <kommodus85@gmail.com>  Thu, 26 Sep 2025 08:00:00 +0200

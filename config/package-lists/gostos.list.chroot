@@ -1,0 +1,27 @@
+# --- Pakiety Systemowe i Live ---
+git
+sudo
+live-boot
+live-config
+live-tools
+linux-image-amd64
+systemd-sysv
+
+# --- Środowisko Graficzne i Aplikacje ---
+xfce4
+xfce4-goodies
+menulibre
+mugshot
+lightdm
+lightdm-gtk-greeter-settings
+
+# --- Zależności Podstawowe ---
+# To jest potrzebne do budowania, ale może być zbędne w finalnym systemie.
+# Jeśli nie używasz tych narzędzi do innych celów, możesz je usunąć, 
+# ponieważ są potrzebne do kompilacji motywu, ale sama kompilacja 
+# odbywa się w postinst, który ma dostęp do sassc (zależność gost-theme).
+# Dla bezpieczeństwa, zostawiamy build-essential do kompilacji innych rzeczy.
+build-essential
+
+# --- Nasz niestandardowy pakiet z motywem ---
+gost-theme

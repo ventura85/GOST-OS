@@ -1,0 +1,13 @@
+Source: gost-theme
+Section: x11
+Priority: optional
+Maintainer: GOST OS Project <kommodus85@gmail.com>
+Build-Depends: debhelper-compat (= 13), sassc
+Standards-Version: 4.6.2
+
+Package: gost-theme
+Architecture: all
+Depends: ${misc:Depends}, libglib2.0-bin, gtk2-engines-murrine
+Description: Niestandardowy motyw GTK i ikony dla GOST OS
+ Ten pakiet instaluje motyw WhiteSur GTK i Win10Sur Icons oraz
+ ustawia je jako domyślne dla całego systemu.

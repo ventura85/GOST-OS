@@ -1,0 +1,19 @@
+#!/usr/bin/make -f
+
+# Zobacz debhelper(7) dla szczegółów
+export DH_VERBOSE = 1
+DEB_BUILD_MAINT_OPTIONS = hardening=+all
+DEB_BUILD_OPTIONS = nocheck
+
+# --- POPRAWIONA LOGIKA BUDOWANIA ---
+override_dh_auto_build:
+	# Najpierw wykonaj standardowe akcje budowania (jeśli jakieś są)
+	dh_auto_build
+	# Następnie skompiluj style SASS do CSS, uruchamiając skrypt z motywu
+	# To jest prawidłowe miejsce na kompilację
+	if [ -f usr/share/themes/WhiteSur/parse-sass.sh ]; then \
+	    (cd usr/share/themes/WhiteSur && ./parse-sass.sh); \
+	fi
+
+%:
+	dh $@

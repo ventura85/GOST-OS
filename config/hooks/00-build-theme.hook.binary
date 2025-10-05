@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eux
+
+# Ten hak uruchamia się na hoście przed zbudowaniem obrazu ISO.
+# Jego zadaniem jest zbudowanie pakietu z motywem i umieszczenie go
+# w miejscu, z którego live-build go pobierze.
+
+echo "INFO: Budowanie pakietu motywu GOST OS..."
+
+# Upewnij się, że skrypt budujący jest wykonywalny
+chmod +x skrypty/build-theme.sh
+
+# Uruchom skrypt budujący
+./skrypty/build-theme.sh
+
+echo "INFO: Pakiet motywu zbudowany pomyślnie."

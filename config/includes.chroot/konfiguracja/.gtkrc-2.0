@@ -1,0 +1,7 @@
+# Własne style GTK2 dla GOST OS
+# Ta reguła zmusza wtyczki panelu, aby nie rysowały własnego tła,
+# dzięki czemu stają się przezroczyste i pokazują tło panelu.
+style "panel-plugin-transparent" {
+    bg_pixmap[NORMAL] = "<null>"
+}
+widget "*Xfce*Panel*" style "panel-plugin-transparent"
