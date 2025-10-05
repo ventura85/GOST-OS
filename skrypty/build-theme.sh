@@ -2,7 +2,7 @@
 set -e
 
 # ==============================================
-#  GOST-OS THEME PACKAGE BUILDER (improved)
+#  GOST-OS THEME PACKAGE BUILDER (final version)
 # ==============================================
 # Buduje paczkę .deb z motywem graficznym GOST OS
 # i umieszcza ją w katalogu config/packages.chroot,
@@ -38,8 +38,10 @@ dpkg-buildpackage -us -uc
 # 6️⃣ Wróć do głównego katalogu repo
 cd ..
 
-# 7️⃣ Znajdź najnowszy zbudowany pakiet
-DEB_FILE=$(ls -1t gost-theme-package_*.deb 2>/dev/null | head -n 1)
+# 7️⃣ Znajdź najnowszy zbudowany pakiet (dowolna nazwa)
+echo "📦 Szukam pakietów .deb w katalogu:"
+ls -lh ./*.deb || echo "Brak plików .deb w katalogu!"
+DEB_FILE=$(ls -1t ./*.deb 2>/dev/null | head -n 1)
 
 if [ -z "$DEB_FILE" ]; then
     echo "❌ Nie znaleziono pliku .deb! Budowa nie powiodła się."
