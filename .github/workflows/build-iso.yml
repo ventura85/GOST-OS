@@ -68,6 +68,9 @@ jobs:
         run: |
           mkdir -p build-logs
           cp -r config build.log* build-logs/ || true
+        shell: bash
+      - name: Upload logs artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gostos-build-logs
