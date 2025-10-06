@@ -1,46 +1,21 @@
-#!/bin/sh
-set -eux
-
-# =======================================================
-#   GOST OS – konfiguracja procesu budowy obrazu ISO
-# =======================================================
+﻿#!/bin/sh
 
 lb config noauto \
-    # --- Tryb i dystrybucja ---
     --mode "debian" \
     --distribution "trixie" \
     --parent-distribution "trixie" \
-    --parent-debian-installer-distribution "trixie" \
     --archive-areas "main contrib non-free non-free-firmware" \
-    \
-    # --- Repositories (mirrory) ---
-    --mirror-bootstrap "http://deb.debian.org/debian/" \
-    --mirror-binary "http://deb.debian.org/debian/" \
-    --mirror-binary-security "http://security.debian.org/debian-security/" \
-    --updates "true" \
     --security "true" \
-    \
-    # --- Architektura i jądro ---
+    --updates "true" \
     --architectures "amd64" \
     --linux-packages "linux-image-amd64" \
-    \
-    # --- Konfiguracja systemu Live ---
     --initramfs "live-boot" \
-    --debian-installer "live" \
-    --debian-installer-gui "true" \
-    \
-    # --- Obraz ISO ---
     --binary-images "iso-hybrid" \
     --bootloader "grub-pc" \
-    --iso-volume "GOST_OS_TRIXIE" \
     --iso-application "GOST OS Debian 13 Trixie" \
-    --iso-publisher "ventura85" \
-    --iso-preparer "GOST Build System" \
-    --bootappend-live "boot=live components username=user quiet splash" \
-    \
-    # --- Inne ustawienia ---
-    --memtest "none" \
-    --apt-options "--yes --force-yes" \
-    --updates true \
-    --security true \
+    --iso-publisher "GOSTOS CI/CD" \
+    --iso-volume "GOSTOS_TRIXIE" \
+    --memtest "memtest86+" \
+    --debian-installer "live" \
+    --debian-installer-gui "true" \
     "${@}"
