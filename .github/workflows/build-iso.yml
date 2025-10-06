@@ -6,61 +6,58 @@ on:
   workflow_dispatch:
 
 jobs:
-  # =========================
-  # JOB 1: Build theme .deb
-  # =========================
-  build-theme:
-    name: Build GOST Theme Package
+  # --- ZADANIE 1: Budowanie pakietu .deb z motywem ---
+  build-package:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential debhelper dh-make sassc dpkg-dev
+        run: sudo apt-get update && sudo apt-get install -y build-essential debhelper dh-make sassc
 
-      - name: Run theme build script
+      - name: Build the theme .deb package
         run: |
-          chmod +x skrypty/build-theme.sh
-          ./skrypty/build-theme.sh
+          cd gost-theme-package/
+          dpkg-buildpackage -us -uc
 
-      - name: Upload built .deb
+      - name: Upload .deb package as artifact
         uses: actions/upload-artifact@v4
         with:
           name: gost-theme-deb
-          path: config/packages.chroot/*.deb
+          path: ./*.deb
 
-  # =========================
-  # JOB 2: Build ISO
-  # =========================
+  # --- ZADANIE 2: Budowanie obrazu ISO ---
   build-iso:
-    name: Build GOST OS ISO
-    needs: build-theme
+    needs: build-package
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download built .deb package
+      - name: Download .deb package artifact
         uses: actions/download-artifact@v4
         with:
           name: gost-theme-deb
           path: config/packages.chroot/
 
-      - name: Install ISO build dependencies
+      - name: Build Debian Live ISO in Docker Container (clean build)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y live-build systemd-container grub-pc-bin xorriso squashfs-tools debootstrap git ca-certificates
+          docker run --rm --privileged \
+            -v "${{ github.workspace }}":/build \
+            -w /build \
+            debian:trixie-slim \
+            sh -c "
+              set -eux;
+              apt-get update;
+              apt-get install -y live-build;
+              rm -rf cache config/bootstrap config/binary || true;
+              ./auto/config;
+              lb clean --purge;
+              lb build;
+            "
 
-      - name: Run live-build (with hooks and includes)
-        run: |
-          sudo lb clean
-          sudo lb config
-          sudo lb build 2>&1 | tee build.log
-
-      - name: Upload ISO artifact
+      - name: Upload ISO as artifact
         uses: actions/upload-artifact@v4
         with:
           name: GOSTOS-debian-trixie-live.iso
@@ -68,7 +65,10 @@ jobs:
 
       - name: Upload build logs
         if: always()
+        run: |
+          mkdir -p build-logs
+          cp -r config build.log* build-logs/ || true
         uses: actions/upload-artifact@v4
         with:
           name: gostos-build-logs
-          path: build.log
+          path: build-logs
