@@ -1,31 +1,35 @@
 #!/bin/sh
-# -*- coding: UTF-8 -*-
+set -e
 
-# Konfiguracja dla lb_config (Debian 13 Trixie)
+# --- Konfiguracja GOST OS Live Build ---
+# Używamy trybu "debian", aby uniknąć dziedziczenia z Ubuntu.
+# Dystrybucja: Debian 13 "Trixie" (testing)
 
 lb config noauto \
-    --mode debian \
-    --distribution trixie \
-    --parent-distribution trixie \
-    --parent-debian-installer-distribution trixie \
+    --mode "debian" \
+    --distribution "trixie" \
+    --parent-distribution "trixie" \
     --archive-areas "main contrib non-free non-free-firmware" \
     \
-    --architectures amd64 \
-    --linux-packages linux-image \
+    # --- Architektura i jądro ---
+    --architectures "amd64" \
+    --linux-packages "linux-image" \
     \
-    --initramfs live-boot \
+    # --- Konfiguracja systemu Live ---
+    --initramfs "live-boot" \
     \
-    --binary-images iso-hybrid \
-    --bootloader grub-pc \
+    # --- Obraz ISO ---
+    --binary-images "iso-hybrid" \
+    --bootloader "grub-pc" \
     --iso-application "GOST OS Debian 13 Trixie" \
     --iso-publisher "GOSTOS CI/CD" \
     --iso-volume "GOSTOS_TRIXIE" \
     \
-    --memtest memtest86+ \
-    --debian-installer live \
-    --debian-installer-gui true \
+    # --- Komponenty dodatkowe ---
+    --memtest "memtest86+" \
+    --debian-installer "live" \
+    --debian-installer-gui "true" \
     \
-    --firmware-chroot true \
-    --firmware-binary true \
-    --win32-loader false \
     "${@}"
+
+echo "[GOST-OS] Konfiguracja auto/config zakończona pomyślnie."
