@@ -24,11 +24,11 @@ jobs:
       - name: Ensure config executable
         run: chmod +x ./auto/config || true
 
-      # --- Zainstaluj wcześniej zbudowany pakiet motywu ---
-      - name: Prepare theme package
+      # --- Upewnij się, że katalog na pakiety istnieje ---
+      - name: Verify theme package location
         run: |
           mkdir -p config/packages.chroot
-          cp config/packages.chroot/gost-theme_1.0_all.deb config/packages.chroot/
+          ls -lh config/packages.chroot/
 
       # --- Budowa ISO ---
       - name: Build Debian Live ISO (Trixie)
