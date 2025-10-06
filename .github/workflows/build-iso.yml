@@ -1,77 +1,47 @@
-name: Build GOST OS ISO
+name: Build GOST OS ISO (Prebuilt Theme)
 
 on:
   push:
-    branches: [ "main", "finalna-konfiguracja", "fix/live-build-fixes" ]
+    branches: [ "main", "finalna-konfiguracja" ]
   workflow_dispatch:
 
 jobs:
-  # --- ZADANIE 1: Budowanie pakietu .deb z motywem ---
-  build-package:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential debhelper dh-make sassc
-
-      - name: Build the theme .deb package
-        run: |
-          cd gost-theme-package/
-          dpkg-buildpackage -us -uc
-
-      - name: Upload .deb package as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: gost-theme-deb
-          path: ./*.deb
-
-  # --- ZADANIE 2: Budowanie obrazu ISO ---
   build-iso:
-    needs: build-package
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download .deb package artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: gost-theme-deb
-          path: config/packages.chroot/
+      - name: 🧰 Prepare environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y live-build debootstrap systemd-container xorriso
 
-      - name: Build Debian Live ISO in Docker Container (clean build)
+      - name: 🧱 Verify prebuilt .deb exists
+        run: |
+          if [ ! -f config/packages.chroot/gost-theme_1.0_all.deb ]; then
+            echo "❌ Missing gost-theme_1.0_all.deb! Add it to config/packages.chroot/"
+            exit 1
+          fi
+          echo "✅ Found gost-theme_1.0_all.deb"
+
+      - name: 🐳 Build Debian Live ISO in Docker
         run: |
           docker run --rm --privileged \
             -v "${{ github.workspace }}":/build \
             -w /build \
             debian:trixie-slim \
             sh -c "
-              set -eux;
-              apt-get update;
-              apt-get install -y live-build;
-              rm -rf cache config/bootstrap config/binary || true;
-              ./auto/config;
-              lb clean --purge;
-              lb build;
+              apt-get update &&
+              apt-get install -y live-build systemd-sysv &&
+              chmod +x auto/config &&
+              ./auto/config &&
+              lb build
             "
 
-      - name: Upload ISO as artifact
+      - name: 📦 Upload ISO artifact
         uses: actions/upload-artifact@v4
         with:
           name: GOSTOS-debian-trixie-live.iso
           path: live-image-amd64.hybrid.iso
-
-      - name: Upload build logs
-        if: always()
-        run: |
-          mkdir -p build-logs
-          cp -r config build.log* build-logs/ || true
-        shell: bash
-      - name: Upload logs artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gostos-build-logs
-          path: build-logs
