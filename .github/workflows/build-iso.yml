@@ -1,8 +1,8 @@
-name: Build GOST OS ISO (Prebuilt Theme)
+name: Build GOST OS ISO
 
 on:
   push:
-    branches: [ "main", "finalna-konfiguracja" , "fix/live-build-fixes"]
+    branches: [ "main", "fix/live-build-fixes" ]
   workflow_dispatch:
 
 jobs:
@@ -10,37 +10,43 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🧩 Checkout repository
+      # --- Pobranie repozytorium ---
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🧰 Prepare environment
+      # --- Instalacja zależności systemowych ---
+      - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y live-build debootstrap systemd-container xorriso
+          sudo apt-get install -y live-build debootstrap systemd-container xorriso ca-certificates
 
-      - name: 🧱 Verify prebuilt .deb exists
+      # --- Upewnij się, że auto/config jest wykonywalny ---
+      - name: Ensure config executable
+        run: chmod +x ./auto/config || true
+
+      # --- Zainstaluj wcześniej zbudowany pakiet motywu ---
+      - name: Prepare theme package
         run: |
-          if [ ! -f config/packages.chroot/gost-theme_1.0_all.deb ]; then
-            echo "❌ Missing gost-theme_1.0_all.deb! Add it to config/packages.chroot/"
-            exit 1
-          fi
-          echo "✅ Found gost-theme_1.0_all.deb"
+          mkdir -p config/packages.chroot
+          cp config/packages.chroot/gost-theme_1.0_all.deb config/packages.chroot/
 
-      - name: 🐳 Build Debian Live ISO in Docker
+      # --- Budowa ISO ---
+      - name: Build Debian Live ISO (Trixie)
         run: |
-          docker run --rm --privileged \
-            -v "${{ github.workspace }}":/build \
-            -w /build \
-            debian:trixie-slim \
-            sh -c "
-              apt-get update &&
-              apt-get install -y live-build systemd-sysv &&
-              chmod +x auto/config &&
-              ./auto/config &&
-              lb build
-            "
+          sudo lb clean
+          sudo lb config
+          sudo lb build 2>&1 | tee build.log
 
-      - name: 📦 Upload ISO artifact
+      # --- Przesłanie logów jako artefakt ---
+      - name: Upload build logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: gostos-build-logs
+          path: build.log
+
+      # --- Przesłanie wygenerowanego obrazu ISO ---
+      - name: Upload ISO artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: GOSTOS-debian-trixie-live.iso

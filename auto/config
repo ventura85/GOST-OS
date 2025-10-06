@@ -8,7 +8,7 @@ lb config noauto \
     --security "true" \
     --updates "true" \
     --architectures "amd64" \
-    --linux-packages "linux-image-amd64" \
+    --linux-packages "linux-image" \
     --initramfs "live-boot" \
     --binary-images "iso-hybrid" \
     --bootloader "grub-pc" \
