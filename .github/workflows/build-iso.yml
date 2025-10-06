@@ -2,7 +2,7 @@ name: Build GOST OS ISO (Prebuilt Theme)
 
 on:
   push:
-    branches: [ "main", "finalna-konfiguracja" ]
+    branches: [ "main", "finalna-konfiguracja" , "fix/live-build-fixes"]
   workflow_dispatch:
 
 jobs:
