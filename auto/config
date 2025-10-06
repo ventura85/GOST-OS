@@ -1,30 +1,23 @@
-﻿#!/bin/sh
-
-# Konfiguracja dla lb_config
+#!/bin/sh
 
 lb config noauto \
-    # --- Konfiguracja podstawowa ---
     --mode "debian" \
     --distribution "trixie" \
     --parent-distribution "trixie" \
     --parent-debian-installer-distribution "trixie" \
     --archive-areas "main contrib non-free non-free-firmware" \
     \
-    # --- Architektura i jądro ---
     --architectures "amd64" \
     --linux-packages "linux-image" \
     \
-    # --- Konfiguracja systemu Live ---
     --initramfs "live-boot" \
     \
-    # --- Konfiguracja obrazu ISO ---
     --binary-images "iso-hybrid" \
     --bootloader "grub-pc" \
     --iso-application "GOST OS Debian 13 Trixie" \
     --iso-publisher "GOSTOS CI/CD" \
     --iso-volume "GOSTOS_TRIXIE" \
     \
-    # --- Dodatkowe komponenty ---
     --memtest "memtest86+" \
     --debian-installer "live" \
     --debian-installer-gui "true" \
