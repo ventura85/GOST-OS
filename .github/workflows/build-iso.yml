@@ -1,4 +1,4 @@
-name: Build GOST OS ISO
+name: Build GOST OS ISO (prebuilt theme)
 
 on:
   push:
@@ -10,41 +10,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # --- Pobranie repozytorium ---
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --- Instalacja zależności systemowych ---
-      - name: Install build dependencies
+      - name: Install host dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y live-build debootstrap systemd-container xorriso ca-certificates
+          sudo apt-get install -y live-build debootstrap xorriso ca-certificates
 
-      # --- Upewnij się, że auto/config jest wykonywalny ---
-      - name: Ensure config executable
-        run: chmod +x ./auto/config || true
-
-      # --- Upewnij się, że katalog na pakiety istnieje ---
-      - name: Verify theme package location
+      - name: Verify theme package present
         run: |
-          mkdir -p config/packages.chroot
-          ls -lh config/packages.chroot/
+          if [ ! -f config/packages.chroot/gost-theme_1.0_all.deb ]; then
+            echo "ERROR: config/packages.chroot/gost-theme_1.0_all.deb not found"
+            ls -la config/packages.chroot || true
+            exit 1
+          fi
+          echo "Found gost-theme_1.0_all.deb"
 
-      # --- Budowa ISO ---
-      - name: Build Debian Live ISO (Trixie)
+      - name: Prepare and run clean build
         run: |
-          sudo lb clean
-          sudo lb config
+          sudo lb clean --purge || true
+          rm -rf cache config/bootstrap config/binary || true
+          sudo chmod +x auto/config || true
+          # Ensure auto/config runs in runner environment
+          sudo ./auto/config
           sudo lb build 2>&1 | tee build.log
 
-      # --- Przesłanie logów jako artefakt ---
       - name: Upload build logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gostos-build-logs
           path: build.log
 
-      # --- Przesłanie wygenerowanego obrazu ISO ---
       - name: Upload ISO artifact
         if: success()
         uses: actions/upload-artifact@v4

@@ -1,4 +1,4 @@
-# --- Podstawowe narzędzia systemowe i Live ---
+# --- System i live ---
 git
 sudo
 live-boot
@@ -6,54 +6,44 @@ live-config
 live-tools
 linux-image-amd64
 systemd-sysv
+network-manager
 
-# --- Środowisko graficzne XFCE i narzędzia ---
+# --- XFCE i GUI ---
 xfce4
 xfce4-goodies
-menulibre
-mugshot
+xfce4-terminal
+xfce4-notifyd
 lightdm
 lightdm-gtk-greeter
 lightdm-gtk-greeter-settings
-policykit-1-gnome
-pkexec
-polkitd
-network-manager
-network-manager-gnome
-xfce4-terminal
-mousepad
 thunar
 thunar-volman
 gvfs
-xfconf
+udisks2
+network-manager-gnome
+mousepad
 
-# --- Dodatkowe komponenty graficzne ---
-adwaita-icon-theme
-gnome-themes-extra
-gtk2-engines-pixbuf
-gtk2-engines-murrine
-fonts-dejavu
-fonts-noto
-x11-xserver-utils
-
-# --- Multimedia i dodatki ---
+# --- Multimedia i narzdzia ---
 pulseaudio
 pavucontrol
 alsa-utils
 xdg-user-dirs
 xdg-utils
-
-# --- Podstawowe aplikacje użytkowe ---
-firefox-esr
 thunar-archive-plugin
 file-roller
-gnome-disk-utility
-gnome-calculator
 gparted
 
-# --- Zależności do motywu i kompilacji ---
+# --- Motyw, fonty i zalenoci builda ---
+gost-theme
 sassc
 build-essential
+libgtk-3-bin
+gnome-themes-extra
+adwaita-icon-theme
+fonts-dejavu-core
+fonts-noto
 
-# --- Niestandardowy pakiet motywu GOST OS ---
-gost-theme
+# --- Dodatkowe uyteczne ---
+wget
+curl
+ca-certificates
