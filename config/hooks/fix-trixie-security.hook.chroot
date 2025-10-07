@@ -1,0 +1,15 @@
+﻿#!/bin/sh
+set -e
+
+echo "[GOST-OS] 🔧 Usuwam bdne wpisy security.debian.org..."
+
+sed -i '/security\.debian\.org/d' /etc/apt/sources.list || true
+find /etc/apt/sources.list.d -type f -name '*.list' -exec sed -i '/security\.debian\.org/d' {} \; || true
+
+cat > /etc/apt/sources.list <<'EOF'
+deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian trixie-updates main contrib non-free non-free-firmware
+EOF
+
+echo "[GOST-OS] ✅ Repozytoria ustawione poprawnie:"
+cat /etc/apt/sources.list
