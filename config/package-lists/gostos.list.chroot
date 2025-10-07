@@ -1,10 +1,17 @@
-# --- System i Live ---
-git
+# --- Podstawowe narzędzia ---
+gnupg
+apt-transport-https
+ca-certificates
+wget
+curl
 sudo
+git
+
+# --- System i Live ---
 live-boot
 live-config
 live-tools
-linux-image
+linux-image-amd64
 systemd-sysv
 network-manager
 
@@ -33,14 +40,9 @@ thunar-archive-plugin
 file-roller
 gparted
 
+# --- Deweloperskie i czcionki ---
 build-essential
 fonts-noto
 
-# --- Dodatkowe użyteczne ---
-wget
-curl
-ca-certificates
-gnupg
-
-# --- Nasz motyw (pakiet ma być w config/packages.chroot) ---
+# --- Motyw ---
 gost-theme
