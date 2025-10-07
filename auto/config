@@ -1,23 +1,22 @@
-#!/bin/sh
+﻿#!/bin/bash
 set -e
 
-echo "[GOST-OS] Uruchamiam konfiguracj� auto/config..."
+echo "[GOST-OS] Uruchamiam konfigurację auto/config..."
 
 lb config noauto \
-  --mode debian \
-  --distribution trixie \
-  --parent-distribution trixie \
-  --archive-areas "main contrib non-free non-free-firmware" \
-  --architectures amd64 \
-  --linux-packages linux-image \
-  --initramfs live-boot \
-  --binary-images iso-hybrid \
-  --bootloader grub-pc \
-  --iso-application "GOST OS Debian 13 Trixie" \
-  --iso-publisher "GOSTOS CI/CD" \
-  --iso-volume "GOSTOS_TRIXIE" \
-  --memtest memtest86+ \
-  --debian-installer live \
-  --debian-installer-gui true
+    --mode debian \
+    --architectures amd64 \
+    --distribution trixie \
+    --parent-distribution trixie \
+    --binary-images iso-hybrid \
+    --debian-installer live \
+    --archive-areas "main contrib non-free non-free-firmware" \
+    --bootappend-live "boot=live components username=gost quiet splash" \
+    --iso-application "GOST-OS" \
+    --iso-volume "GOST-OS" \
+    --iso-publisher "GOST-Project" \
+    --memtest none \
+    --firmware-chroot true \
+    --firmware-binary true
 
-echo "[GOST-OS] Konfiguracja auto/config zako�czona."
+echo "[GOST-OS] Konfiguracja zakończona pomyślnie."
