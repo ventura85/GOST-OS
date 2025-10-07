@@ -1,0 +1,4 @@
+﻿#!/bin/sh
+set -e
+echo "[GOST-OS] Usuwam nieistniejce repo security.debian.org..."
+sed -i "/security\.debian\.org/d" /etc/apt/sources.list || true
