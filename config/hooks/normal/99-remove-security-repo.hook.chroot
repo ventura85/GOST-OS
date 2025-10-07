@@ -1,4 +1,4 @@
-﻿#!/bin/sh
+#!/bin/sh
 set -e
 
 echo "[GOST-OS] Usuwam błędny wpis security.debian.org z /etc/apt/sources.list..."
