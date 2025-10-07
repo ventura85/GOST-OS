@@ -1,4 +1,4 @@
-﻿#!/bin/sh
+#!/bin/sh
 set -e
 
 echo "[GOST-OS] Uruchamiam konfigurację auto/config..."

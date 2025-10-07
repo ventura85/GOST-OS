@@ -1,7 +1,6 @@
 #!/bin/sh
 set -e
-
-echo "[GOST-OS] Nadpisuję /etc/apt/sources.list (bez security.debian.org)..."
+echo "[HOOK] Naprawiam mirrors wewntrz chroota..."
 
 cat > /etc/apt/sources.list <<'EOF'
 deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
@@ -9,3 +8,4 @@ deb http://deb.debian.org/debian trixie-updates main contrib non-free non-free-f
 EOF
 
 apt-get update || true
+echo "[HOOK] Mirror poprawiony!"
