@@ -1,4 +1,4 @@
-# --- System i live ---
+# --- System i Live ---
 git
 sudo
 live-boot
@@ -23,7 +23,7 @@ udisks2
 network-manager-gnome
 mousepad
 
-# --- Multimedia i narzdzia ---
+# --- Multimedia i narzędzia ---
 pulseaudio
 pavucontrol
 alsa-utils
@@ -33,17 +33,13 @@ thunar-archive-plugin
 file-roller
 gparted
 
-# --- Motyw, fonty i zalenoci builda ---
-gost-theme
-sassc
 build-essential
-libgtk-3-bin
-gnome-themes-extra
-adwaita-icon-theme
-fonts-dejavu-core
 fonts-noto
 
-# --- Dodatkowe uyteczne ---
+# --- Dodatkowe użyteczne ---
 wget
 curl
 ca-certificates
+
+# --- Motyw ---
+./config/packages.chroot/gost-theme_1.0_all.deb

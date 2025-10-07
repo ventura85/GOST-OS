@@ -1,4 +1,4 @@
-name: Build GOST OS ISO (prebuilt theme)
+name: Build GOST OS ISO (Trixie fixed)
 
 on:
   push:
@@ -13,26 +13,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install host dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y live-build debootstrap xorriso ca-certificates
 
-      - name: Verify theme package present
+      - name: Verify theme package
         run: |
           if [ ! -f config/packages.chroot/gost-theme_1.0_all.deb ]; then
-            echo "ERROR: config/packages.chroot/gost-theme_1.0_all.deb not found"
+            echo "ERROR: Theme package missing!"
             ls -la config/packages.chroot || true
             exit 1
           fi
-          echo "Found gost-theme_1.0_all.deb"
+          echo "🎨 Paczka motywu OK"
 
-      - name: Prepare and run clean build
+      - name: Clean old build
         run: |
           sudo lb clean --purge || true
           rm -rf cache config/bootstrap config/binary || true
-          sudo chmod +x auto/config || true
-          # Ensure auto/config runs in runner environment
+
+      - name: Configure and build ISO
+        run: |
+          sudo chmod +x auto/config
           sudo ./auto/config
           sudo lb build 2>&1 | tee build.log
 
@@ -43,7 +45,7 @@ jobs:
           name: gostos-build-logs
           path: build.log
 
-      - name: Upload ISO artifact
+      - name: Upload ISO
         if: success()
         uses: actions/upload-artifact@v4
         with:

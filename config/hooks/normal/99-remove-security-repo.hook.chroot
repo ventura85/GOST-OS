@@ -1,4 +1,10 @@
 ﻿#!/bin/sh
 set -e
-echo "[GOST-OS] Usuwam nieistniejce repo security.debian.org..."
-sed -i "/security\.debian\.org/d" /etc/apt/sources.list || true
+
+echo "[GOST-OS] Usuwam błędny wpis security.debian.org z /etc/apt/sources.list..."
+if grep -q "security.debian.org" /etc/apt/sources.list; then
+  sed -i '/security\.debian\.org/d' /etc/apt/sources.list
+  echo "[GOST-OS] Repo security usunięte."
+else
+  echo "[GOST-OS] Nie znaleziono wpisu security.debian.org — pomijam."
+fi
