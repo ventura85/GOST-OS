@@ -8,16 +8,18 @@ lb config noauto \
   --distribution trixie \
   --parent-distribution trixie \
   --archive-areas "main contrib non-free non-free-firmware" \
+  --security false \
+  --updates true \
   --architectures amd64 \
   --linux-packages "linux-image" \
-  --initramfs live-boot \
-  --binary-images iso-hybrid \
-  --bootloader grub-pc \
+  --initramfs "live-boot" \
+  --binary-images "iso-hybrid" \
+  --bootloader "grub-pc" \
   --iso-application "GOST OS Debian 13 Trixie" \
   --iso-publisher "GOSTOS CI/CD" \
   --iso-volume "GOSTOS_TRIXIE" \
-  --memtest memtest86+ \
-  --debian-installer live \
+  --memtest "memtest86+" \
+  --debian-installer "live" \
   --debian-installer-gui true
 
 echo "[GOST-OS] Konfiguracja auto/config zakończona."
