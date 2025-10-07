@@ -1,4 +1,4 @@
-﻿name: Build GOST OS ISO (manual binary build)
+name: Build GOST OS ISO (manual binary build)
 
 on:
   workflow_dispatch:
