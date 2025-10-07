@@ -1,15 +1,9 @@
-#!/bin/sh
-set -e
-
-echo "[GOST-OS] Uruchamiam konfigurację auto/config..."
-
 lb config noauto \
   --mode debian \
   --distribution trixie \
   --parent-distribution trixie \
   --archive-areas "main contrib non-free non-free-firmware" \
   --security false \
-  --updates true \
   --architectures amd64 \
   --linux-packages "linux-image" \
   --initramfs "live-boot" \
@@ -21,5 +15,3 @@ lb config noauto \
   --memtest "memtest86+" \
   --debian-installer "live" \
   --debian-installer-gui true
-
-echo "[GOST-OS] Konfiguracja auto/config zakończona."
