@@ -4,7 +4,7 @@ sudo
 live-boot
 live-config
 live-tools
-linux-image-amd64
+linux-image
 systemd-sysv
 network-manager
 
@@ -42,6 +42,5 @@ curl
 ca-certificates
 gnupg
 
-# --- Motyw GOST ---
-# Paczka .deb instalowana automatycznie z katalogu config/packages.chroot/
-# lub przez hook install-gost-theme.chroot
+# --- Nasz motyw (pakiet ma być w config/packages.chroot) ---
+gost-theme

@@ -1,9 +1,13 @@
+#!/bin/sh
+set -e
+
+echo "[GOST-OS] Running auto/config..."
+
 lb config noauto \
   --mode debian \
   --distribution trixie \
   --parent-distribution trixie \
   --archive-areas "main contrib non-free non-free-firmware" \
-  --security false \
   --architectures amd64 \
   --linux-packages "linux-image" \
   --initramfs "live-boot" \
@@ -14,4 +18,7 @@ lb config noauto \
   --iso-volume "GOSTOS_TRIXIE" \
   --memtest "memtest86+" \
   --debian-installer "live" \
-  --debian-installer-gui true
+  --debian-installer-gui true \
+  "$@"
+
+echo "[GOST-OS] auto/config done."

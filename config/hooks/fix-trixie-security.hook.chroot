@@ -1,26 +1,27 @@
-﻿#!/bin/sh
+#!/bin/sh
 set -e
-echo "[GOST-OS] đź”§ Fix Trixie sources: remove security.debian.org if present"
+echo "[GOST-OS] fix-trixie-security hook (chroot) running..."
 
-# remove any security.debian.org lines from main sources
+# Remove security.debian.org lines if present
 if [ -f /etc/apt/sources.list ]; then
   sed -i '/security\.debian\.org/d' /etc/apt/sources.list || true
 fi
 
-# remove from any files under sources.list.d
 if [ -d /etc/apt/sources.list.d ]; then
-  find /etc/apt/sources.list.d -type f -name '*.list' -exec sed -i '/security\.debian\.org/d' {} \; || true
+  for f in /etc/apt/sources.list.d/*.list; do
+    [ -f "$f" ] || continue
+    sed -i '/security\.debian\.org/d' "$f" || true
+  done
 fi
 
-# write canonical Trixie sources (deb.debian.org)
 cat > /etc/apt/sources.list <<'EOF'
 deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
 deb http://deb.debian.org/debian trixie-updates main contrib non-free non-free-firmware
 EOF
 
-echo "[GOST-OS] âś… Sources now:"
+echo "[GOST-OS] sources now:"
 cat /etc/apt/sources.list || true
 
-# do not fail the build here if apt-get update has issues (live-build will handle)
+# don't fail build here if apt-get update has issues (live-build will handle)
 apt-get update || true
-echo "[GOST-OS] fix-trixie-security.hook.chroot finished"
+echo "[GOST-OS] fix-trixie-security hook finished."
