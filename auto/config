@@ -1,7 +1,7 @@
-bin/sh
+#!/bin/sh
 set -e
 
-echo "[GOST-OS] Uruchamiam konfiguracj auto/config..."
+echo "[GOST-OS] Uruchamiam konfiguracjê auto/config..."
 
 lb config noauto \
   --mode debian \
@@ -9,7 +9,7 @@ lb config noauto \
   --parent-distribution trixie \
   --archive-areas "main contrib non-free non-free-firmware" \
   --architectures amd64 \
-  --linux-packages "linux-image" \
+  --linux-packages linux-image \
   --initramfs live-boot \
   --binary-images iso-hybrid \
   --bootloader grub-pc \
@@ -20,4 +20,4 @@ lb config noauto \
   --debian-installer live \
   --debian-installer-gui true
 
-echo "[GOST-OS] Konfiguracja auto/config zakoczona pomylnie."
+echo "[GOST-OS] Konfiguracja zakoñczona."
