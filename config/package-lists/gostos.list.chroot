@@ -40,6 +40,8 @@ fonts-noto
 wget
 curl
 ca-certificates
+gnupg
 
-# --- Motyw ---
-./config/packages.chroot/gost-theme_1.0_all.deb
+# --- Motyw GOST ---
+# Paczka .deb instalowana automatycznie z katalogu config/packages.chroot/
+# lub przez hook install-gost-theme.chroot

@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+
+echo "[GOST-OS] 🖌️ Instaluję motyw GOST (gost-theme_1.0_all.deb)..."
+
+# Upewnij się, że paczka istnieje
+if [ -f /config/packages.chroot/gost-theme_1.0_all.deb ]; then
+    dpkg -i /config/packages.chroot/gost-theme_1.0_all.deb || apt-get install -f -y
+    echo "[GOST-OS] ✅ Motyw GOST zainstalowany pomyślnie."
+else
+    echo "[GOST-OS] ⚠️ Brak pliku /config/packages.chroot/gost-theme_1.0_all.deb — pomijam instalację."
+fi
+
+echo "[GOST-OS] 🔧 Czyszczenie..."
+apt-get clean
