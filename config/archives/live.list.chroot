@@ -1,2 +1,2 @@
-deb http://ftp.debian.org/debian trixie main contrib non-free non-free-firmware
-deb http://ftp.debian.org/debian trixie-updates main contrib non-free non-free-firmware
+﻿deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian trixie-updates main contrib non-free non-free-firmware
