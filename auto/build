@@ -1,4 +1,4 @@
 #!/bin/bash
 set -euo pipefail
 # Wygodny log do diagnostyki
-lb build --force 2>&1 | tee build.log
+env -i HOME=$HOME PATH=/usr/bin:/usr/sbin:/bin:/sbin lb build --force 2>&1 | tee build.log
