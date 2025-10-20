@@ -1,0 +1,33 @@
+name: Build GOST OS ISO
+on: { workflow_dispatch: {}, push: { branches: [ main, ci/trixie-iso ], paths: [ 'auto/**', 'config/**', '.github/workflows/build-iso.yml' ] } }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:trixie-slim
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            live-build debootstrap xorriso syslinux isolinux \
+            squashfs-tools dosfstools ca-certificates locales \
+            gnupg dirmngr curl git
+      - name: Ensure exec bits
+        run: |
+          chmod +x auto/* || true
+          chmod +x config/hooks/*.hook.chroot || true
+      - name: Configure
+        run: ./auto/config
+      - name: Build
+        env: { LB_FORCE: "true" }
+        run: ./auto/build
+      - name: Upload ISO
+        uses: actions/upload-artifact@v4
+        with: { name: gostos-trixie-amd64.iso, path: live-image-amd64.hybrid.iso }
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: live-build-logs, path: build.log }

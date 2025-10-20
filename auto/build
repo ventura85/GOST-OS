@@ -1,0 +1,4 @@
+#!/bin/bash
+set -euo pipefail
+# Wygodny log do diagnostyki
+lb build 2>&1 | tee build.log
