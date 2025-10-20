@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+
+# Install prebuilt gost-theme package if present
+# Try to install .deb and fix dependencies if necessary
+dpkg -i /packages/gost-theme_*.deb || apt-get -f install -y
