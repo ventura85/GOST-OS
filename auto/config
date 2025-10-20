@@ -3,7 +3,7 @@ set -euo pipefail
 lb config noauto \
   --mode debian \
   --architectures amd64 \
-  --distribution trixie \
+  ---distribution bookworm \
   --binary-images iso-hybrid \
   --debian-installer false \
   --archive-areas "main contrib non-free non-free-firmware" \
