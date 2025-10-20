@@ -1,38 +1,12 @@
-#!/bin/sh
-
-# Konfiguracja dla lb_config
-
+#!/bin/bash
+set -euo pipefail
 lb config noauto \
-    # --- Konfiguracja podstawowa ---
-    # Krytyczne: Jawnie ustawia tryb na "debian", aby uniknąć dziedziczenia z Ubuntu
-    --mode "debian" \
-    # Definicja dystrybucji docelowej
-    --distribution "trixie" \
-    --parent-distribution "trixie" \
-    --parent-debian-installer-distribution "trixie" \
-    # Obszary repozytorium
-    --archive-areas "main contrib non-free non-free-firmware" \
-    # Włącz aktualizacje
-    --security "true" \
-    --updates "true" \
-    \
-    # --- Architektura i jądro ---
-    --architectures "amd64" \
-    --linux-packages "linux-image-amd64" \
-    \
-    # --- Konfiguracja systemu Live ---
-    # Kluczowe: Wymuś użycie 'live-boot' Debiana zamiast 'casper' z Ubuntu
-    --initramfs "live-boot" \
-    \
-    # --- Konfiguracja obrazu ISO ---
-    --binary-images "iso-hybrid" \
-    --bootloader "grub-pc" \
-    --iso-application "GOSTOS Debian 13 Trixie" \
-    --iso-publisher "GOSTOS CI/CD" \
-    --iso-volume "GOSTOS_TRIXIE" \
-    \
-    # --- Dodatkowe komponenty ---
-    --memtest "memtest86+" \
-    --debian-installer "live" \
-    --debian-installer-gui "true" \
-    "${@}"
+  --mode debian \
+  --architectures amd64 \
+  --distribution trixie \
+  --binary-images iso-hybrid \
+  --debian-installer false \
+  --archive-areas "main contrib non-free non-free-firmware" \
+  --firmware-binary true \
+  --firmware-chroot true
+echo "[auto/config] ok"
