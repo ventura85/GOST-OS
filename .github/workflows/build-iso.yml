@@ -1,14 +1,14 @@
 name: Build GOST OS ISO
+
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
   push:
-    branches:
-      - main
-      - ci/bookworm-iso
+    branches: [main]
     paths:
       - 'auto/**'
       - 'config/**'
       - '.github/workflows/build-iso.yml'
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,22 +16,33 @@ jobs:
       image: debian:bookworm-slim
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
-      - name: Install deps
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y \
             live-build debootstrap xorriso syslinux isolinux \
             squashfs-tools dosfstools ca-certificates locales \
             gnupg dirmngr curl git
-      - name: Ensure exec bits
+      - name: Configure live-build
         run: |
-          chmod +x auto/* || true
-          chmod +x config/hooks/*.hook.chroot || true
-      - name: Configure
-        run: ./auto/config
-      - name: Build
-        run: ./auto/build
+          lb config noauto \
+            --mode debian \
+            --architectures amd64 \
+            --distribution bookworm \
+            --binary-images iso-hybrid \
+            --debian-installer false \
+            --archive-areas "main contrib non-free non-free-firmware" \
+            --firmware-binary true \
+            --firmware-chroot true
+      - name: Build ISO
+        run: |
+          # Uruchamiamy live-build w minimalnym środowisku,
+          # żeby uniknąć przekazywania setek zmiennych środowiskowych
+          env -i HOME="$HOME" PATH="/usr/sbin:/usr/bin:/bin:/sbin" \
+            lb build --force 2>&1 | tee build.log
       - name: Upload ISO
         uses: actions/upload-artifact@v4
         with:
