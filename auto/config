@@ -1,12 +1,13 @@
-#!/bin/bash
-set -euo pipefail
-lb config noauto \
-  --mode debian \
-  --architectures amd64 \
-  ---distribution bookworm \
-  --binary-images iso-hybrid \
-  --debian-installer false \
-  --archive-areas "main contrib non-free non-free-firmware" \
-  --firmware-binary true \
-  --firmware-chroot true
-echo "[auto/config] ok"
+- name: Configure
+  run: |
+    lb config noauto \
+      --mode debian \
+      --architectures amd64 \
+      --distribution bookworm \
+      --binary-images iso-hybrid \
+      --debian-installer false \
+      --archive-areas "main contrib non-free non-free-firmware" \
+      --firmware-binary true \
+      --firmware-chroot true
+- name: Build
+  run: env -i HOME=$HOME PATH=/usr/sbin:/usr/bin:/bin:/sbin lb build --force 2>&1 | tee build.log
