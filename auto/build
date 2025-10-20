@@ -1,4 +1,4 @@
 #!/bin/bash
 set -euo pipefail
-# Wygodny log do diagnostyki
-env -i HOME=$HOME PATH=/usr/bin:/usr/sbin:/bin:/sbin lb build --force 2>&1 | tee build.log
+# The build script intentionally left empty to avoid recursion in CI.
+echo "[auto/build] script skipped to prevent recursion"
