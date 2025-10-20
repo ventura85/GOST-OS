@@ -1,10 +1,19 @@
 name: Build GOST OS ISO
-on: { workflow_dispatch: {}, push: { branches: [ main, ci/trixie-iso ], paths: [ 'auto/**', 'config/**', '.github/workflows/build-iso.yml' ] } }
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+      - ci/bookworm-iso
+    paths:
+      - 'auto/**'
+      - 'config/**'
+      - '.github/workflows/build-iso.yml'
 jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: debian:trixie-slim
+      image: debian:bookworm-slim
       options: --privileged
     steps:
       - uses: actions/checkout@v4
@@ -22,12 +31,15 @@ jobs:
       - name: Configure
         run: ./auto/config
       - name: Build
-        env: { LB_FORCE: "true" }
         run: ./auto/build
       - name: Upload ISO
         uses: actions/upload-artifact@v4
-        with: { name: gostos-trixie-amd64.iso, path: live-image-amd64.hybrid.iso }
+        with:
+          name: gostos-bookworm-amd64.iso
+          path: live-image-amd64.hybrid.iso
       - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
-        with: { name: live-build-logs, path: build.log }
+        with:
+          name: live-build-logs
+          path: build.log
