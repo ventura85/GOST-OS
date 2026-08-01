@@ -1,0 +1,26 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# Artefakty testów
+/tests/golden/*.actual.png
+/tests/golden/*.diff.png
+
+# Środowisko lokalne
+.env
+*.log
+
+# Edytory. Stan lokalny narzędzi trzymaj w .git/info/exclude — lista narzędzi,
+# których używasz, też jest informacją o warsztacie, a nie o projekcie
+# (docs/04-zasady-pracy.md, zasada czystego repozytorium).
+/.vscode/
+/.idea/
+*.swp
+*~
+
+# System
+.DS_Store
+
+# Podglad interfejsu generowany przez --png (nie wersjonujemy obrazow roboczych)
+/podglad/

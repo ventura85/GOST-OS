@@ -1,0 +1,5 @@
+target/
+.git/
+resources/branding/
+*.png
+*.jpg

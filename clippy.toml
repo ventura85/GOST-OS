@@ -1,0 +1,2 @@
+# Keep the dependency tree small: old hardware is the deployment target (D-027).
+too-many-arguments-threshold = 8

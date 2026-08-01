@@ -1,0 +1,6 @@
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+# Cross-compilation targets: Raspberry Pi (D-002) and phones (D-020, D-026).
+# Building on the RPi3 itself is too slow to iterate on.
+targets = ["aarch64-unknown-linux-gnu"]

@@ -1,0 +1,23 @@
+[package]
+name = "gostui-render"
+description = "Deterministic software rasteriser for GostUI, and PNG export for golden tests."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+gostui-core.workspace = true
+# Text is shaping, font fallback and line breaking, none of which a glyph
+# rasteriser gives you (D-005). `default-features = false` keeps the swash
+# rasteriser and system font discovery and drops the rest.
+cosmic-text = { version = "0.19", default-features = false, features = [
+    "std",
+    "swash",
+    "fontconfig",
+] }
+# Encoding only. Chosen over hand-rolling because golden tests must produce files
+# other tools can open, and PNG's zlib stream is not worth reimplementing.
+png = "0.17"

@@ -1,0 +1,13 @@
+[package]
+name = "gostui-core"
+description = "Pure logic of the GostUI shell: tabs, outputs, tiling layout. No graphics, no Wayland."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+# D-016: this crate must never depend on `smithay` or any `wayland-*` crate.
+# If something here needs a running compositor to be tested, it is in the wrong place.
+[dependencies]

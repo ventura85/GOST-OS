@@ -1,0 +1,14 @@
+[package]
+name = "gostui-desktop-entry"
+description = "Parser for freedesktop .desktop entries, including Exec field codes."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+# No dependencies on purpose. The desktop entry format is an INI dialect with a
+# short specification; pulling a general INI crate would cost more than it saves,
+# and the dependency tree is a budget item on old hardware (D-027).
+[dependencies]

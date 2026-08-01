@@ -1,0 +1,36 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/gostui-core",
+    "crates/gostui-config",
+    "crates/gostui-desktop-entry",
+    "crates/gostui-render",
+    "crates/gostui-compositor",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.90"
+license = "GPL-3.0-only"
+repository = "https://github.com/ventura85/GOST-OS"
+authors = ["Kamil Lewandowski <https://lellis-software.pl/>"]
+
+[workspace.dependencies]
+# `version` alongside `path` is not redundant: without it the dependency
+# resolves to a wildcard, which `cargo deny` cannot check. Keep in step with
+# `workspace.package.version` above.
+gostui-core = { path = "crates/gostui-core", version = "0.0.1" }
+gostui-config = { path = "crates/gostui-config", version = "0.0.1" }
+gostui-desktop-entry = { path = "crates/gostui-desktop-entry", version = "0.0.1" }
+gostui-render = { path = "crates/gostui-render", version = "0.0.1" }
+
+# Release profile is the only one performance may be judged on (see docs/01, §5).
+# Old hardware is the deployment target (D-027), so we optimise for size as well
+# as speed: a smaller binary means less to page in on a slow disk.
+[profile.release]
+opt-level = 2
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "debuginfo"

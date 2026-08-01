@@ -1,0 +1,50 @@
+[package]
+name = "gostui-compositor"
+description = "The GostUI Wayland compositor. Translates protocol events into gostui-core calls and draws its state."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "gostui"
+path = "src/main.rs"
+
+[dependencies]
+gostui-core.workspace = true
+gostui-config.workspace = true
+gostui-desktop-entry.workspace = true
+gostui-render.workspace = true
+
+# smithay and the wayland-* crates belong here and nowhere else in the
+# workspace (D-016). `default-features = false` on purpose: the default set
+# drags in DRM, libinput, libseat, vulkan and XWayland, none of which M1 needs,
+# and every one of them is a system library CI would have to carry.
+smithay = { version = "0.7.0", optional = true, default-features = false }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", optional = true, default-features = false, features = [
+    "fmt",
+    "env-filter",
+] }
+jiff = { version = "0.2.35", default-features = false, features = ["std", "tz-system"] }
+
+[features]
+default = ["winit"]
+# Nested in an X11/Wayland session — the everyday development mode.
+winit = [
+    "dep:smithay",
+    "smithay/backend_winit",
+    # The server side of the protocol: wl_compositor, wl_shm, xdg-shell and the
+    # rest. Off until M2 because a compositor with no socket does not need it,
+    # and it drags in the whole wayland-protocols tree.
+    "smithay/wayland_frontend",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+]
+# DRM/KMS on a tty. Used when closing out a milestone, not during iteration.
+udev = []
+# CPU renderer. Not a fallback: on a machine without a usable GPU it is the
+# faster path (D-027).
+pixman = []

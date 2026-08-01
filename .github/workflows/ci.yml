@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  # The repository holds the project and nothing else (docs/04-zasady-pracy.md).
+  #
+  # The safety net under the pre-commit hook: `.git/hooks/` is not part of a
+  # clone, so a fresh checkout commits unguarded until somebody installs it.
+  # This job needs no toolchain and finishes in seconds, so it is first — a
+  # leaked path should fail before the build has a chance to look green.
+  higiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: a file that was removed later is still in the pack,
+          # and still public.
+          fetch-depth: 0
+      - name: Higiena repozytorium
+        run: scripts/higiena.sh
+
+  # Everything that needs no screen and no GPU — which is most of the project,
+  # by design (D-016).
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwayland-dev libxkbcommon-dev libinput-dev libudev-dev \
+            libseat-dev libgbm-dev libdrm-dev libsystemd-dev \
+            libegl1-mesa-dev libdbus-1-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace
+
+      # Every backend must keep compiling even when nobody is working on it.
+      # Compiling the udev backend needs headers, not hardware.
+      - name: Build all backends
+        run: |
+          cargo build -p gostui-compositor --features winit
+          cargo build -p gostui-compositor --features udev
+          cargo build -p gostui-compositor --features pixman
+
+  # Licence compatibility with GPL-3.0 (D-014) and known advisories.
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+
+  # The Raspberry Pi and phone targets must not break silently (D-002, D-026).
+  cross:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+      - uses: Swatinem/rust-cache@v2
+      # gostui-core has no system dependencies at all, so it cross-compiles
+      # without an ARM sysroot. That is the boundary from D-016 paying off.
+      - name: Cross-compile the logic crates
+        run: |
+          cargo build --target aarch64-unknown-linux-gnu \
+            -p gostui-core -p gostui-config -p gostui-desktop-entry

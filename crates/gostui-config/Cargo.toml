@@ -1,0 +1,20 @@
+[package]
+name = "gostui-config"
+description = "Versioned TOML configuration for GostUI, always written atomically."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+# The theme's shape and its rules live in core; this crate only maps TOML onto
+# them (D-032). Core stays free of `serde` on purpose, so the file format cannot
+# leak into the logic.
+gostui-core.workspace = true
+serde = { version = "1", features = ["derive"] }
+toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,68 @@
+[advisories]
+yanked = "deny"
+ignore = [
+    # RUSTSEC-2026-0196 — `cgmath` is unmaintained. Not a vulnerability: the
+    # advisory is a maintenance notice, and the crate does linear algebra on
+    # matrices, with no I/O and no parsing of anything a client controls.
+    # It reaches us only through smithay 0.7 (D-001), which is the whole reason
+    # this project does not write its own compositor plumbing; dropping smithay
+    # to drop cgmath would be the wrong trade by several orders of magnitude.
+    # Revisit when smithay 0.8 lands — upstream is aware of it.
+    { id = "RUSTSEC-2026-0196", reason = "unmaintained transitive dependency of smithay 0.7; no fixed version exists" },
+    # RUSTSEC-2026-0192 — `ttf-parser` is unmaintained. Reaches us as
+    # cosmic-text 0.19 → fontdb 0.23 → ttf-parser (D-005).
+    #
+    # This one deserves more caution than the cgmath notice above, because
+    # unlike matrix arithmetic it *does* parse untrusted input: a font file.
+    # Two things keep it acceptable for now. The fonts it parses are the ones
+    # already installed on the user's own system, not anything a Wayland client
+    # hands us — a malicious font is a machine that is already compromised.
+    # And `fontdb` uses it for metadata only; the shaping and rasterising that
+    # touch glyph outlines go through `harfrust` and `swash`, which are
+    # maintained.
+    #
+    # The advisory's own recommendation is `skrifa`, which cosmic-text already
+    # depends on for part of the pipeline — so the fix is upstream migrating
+    # fontdb, not us swapping the text stack. Revisit when cosmic-text or fontdb
+    # drops it. **If we ever parse a font from anywhere but the system font
+    # directories, this exception has to go first.**
+    { id = "RUSTSEC-2026-0192", reason = "unmaintained transitive dependency of cosmic-text 0.19 via fontdb; metadata parsing of system fonts only" },
+]
+
+[licenses]
+# The project is GPL-3.0-only (D-014). These are the licences that are
+# compatible with distributing a GPL-3.0 binary.
+#
+# It must be "GPL-3.0-only", not "GPL-3.0". The bare form is a deprecated SPDX
+# identifier, cargo-deny matches identifiers exactly, and our own crates declare
+# "GPL-3.0-only" — so the short form rejected all four of them.
+allow = [
+    "GPL-3.0-only",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "MPL-2.0",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.9
+# The allow list is deliberately wider than the current dependency tree: smithay
+# pulls in a large graph in M1. Warning about entries nothing uses yet would bury
+# the diagnostics that matter.
+unused-allowed-license = "allow"
+
+[bans]
+multiple-versions = "warn"
+# A wildcard version from crates.io means an unreviewed upgrade can arrive
+# silently, so it stays denied. Workspace path dependencies are a different
+# thing that merely looks the same: `gostui-core.workspace = true` has no
+# version because the crate is right here in the tree.
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
