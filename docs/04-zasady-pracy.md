@@ -27,7 +27,7 @@ M2) nie jest jeszcze routowane:** `wl_seat` istnieje, bo bez niego klient uznaje
 klawiatury, ale żadne zdarzenie przez niego nie przechodzi. Zostaje też `linux-dmabuf` —
 ścieżka CPU takiego bufora nie odczyta i **świadomie pomija** takie okno zamiast rysować je źle.
 
-`cargo test --workspace` — 183 testy, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
+`cargo test --workspace` — 185 testów, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
 `cargo run -p gostui-compositor -- --png ui.png` — rysuje interfejs do dwóch PNG-ów
 (monitor i telefon) z tego samego stanu, z zegarem w górnym pasku.
 `cargo run -p gostui-compositor -- --backend winit [--renderer gles2|pixman] [--frames n]` —
@@ -37,7 +37,7 @@ przyjdą — to zero renderowania w spoczynku działające poprawnie, nie awaria
 nie uruchamia; buduje tylko z cechą `winit`.
 
 **Rysowanie jest opisane raz, rasteryzowane dwa razy.** `gostui_render::display_list` daje listę
-prymitywów w jednostkach logicznych (`Fill` i `Text`); `TextRenderer::resolve` zamienia tekst
+prymitywów w jednostkach logicznych (`Fill`, `Text`, `Surface`); `TextRenderer::resolve` zamienia tekst
 na gotowe obrazy **przed** klatką, a `ShellRenderer` w kompozytorze wykonuje wynik przez
 `draw_solid` + tekstury (GLES2) albo przez własny rasteryzer wgrywany jako jedna tekstura (CPU).
 **Nie dodawaj rysowania tylko do jednej ścieżki** — obie muszą dawać ten sam obraz.

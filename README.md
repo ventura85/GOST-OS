@@ -53,19 +53,32 @@ nad gotowymi usługami systemowymi (systemd, NetworkManager, PipeWire, UPower), 
 
 ## Stan
 
-**M0 zamknięty (2026-07-30), M1 w toku.** Działa i jest przetestowany model kart, model wyjść
-(skala, obrót, odłączanie), silnik kafelkowania, konfiguracja z zapisem atomowym i parser
-`.desktop` z kodami pól `Exec`. Od 2026-07-31 kompozytor otwiera **okno** w bieżącej sesji
-(smithay 0.7, backend `winit`) i rysuje w nim shell dwiema równorzędnymi ścieżkami — GPU (GLES2)
-i CPU. Od 2026-08-01 wygląd jest w całości konfigurowalny (`theme.toml`), a w górnym pasku
-tyka zegar rysowany przez `cosmic-text`. Klientów jeszcze nie przyjmuje; gniazdo wayland to M2.
+**M0 i M1 zamknięte, M2 w toku — kroki 1–3 z 6 (stan na 2026-08-01).**
+
+Kompozytor otwiera gniazdo wayland, obsługuje `xdg-shell` i **kafelkuje okna prawdziwych
+klientów**: `foot` startuje, dostaje rozmiar kafelka, a drugie okno dzieli z nim ekran.
+Okna rysują się dwiema równorzędnymi ścieżkami — GPU (GLES2) i własnym rasteryzerem
+programowym — dającymi ten sam obraz, bo maszyna bez używalnego GPU jest tu celem, nie
+wyjątkiem. Wygląd jest w całości konfigurowalny (`theme.toml`), w górnym pasku tyka zegar
+rysowany przez `cosmic-text`.
+
+**Czego jeszcze nie ma:** wejścia — `wl_seat` istnieje, ale zdarzenia klawiatury i myszy nie
+są jeszcze routowane do klientów, więc do terminala nic nie wpiszesz (M2 krok 4). Bufory
+`linux-dmabuf` są świadomie pomijane na ścieżce CPU zamiast rysowane błędnie.
 
 ```bash
-cargo test --workspace                  # 147 testów, bez ekranu i bez GPU
+cargo test --workspace                  # 185 testów, bez ekranu i bez GPU
 cargo run -p gostui-compositor          # layout policzony dla monitora i telefonu
 cargo run -p gostui-compositor -- --png ui.png       # rysuje interfejs do plików PNG
 cargo run -p gostui-compositor -- --backend winit    # okno w bieżącej sesji
 cargo run -p gostui-compositor -- --backend winit --renderer pixman  # to samo, z CPU
+```
+
+Gdy kompozytor działa, wypisuje nazwę swojego gniazda. Klient podłącza się do niego tak:
+
+```bash
+WAYLAND_DISPLAY=wayland-gostui wayland-info   # lista udostępnianych globali
+WAYLAND_DISPLAY=wayland-gostui foot           # terminal jako kafelek
 ```
 
 `--png` daje dwa obrazy z **tego samego stanu**: `ui-monitor.png` (1920×1080)
@@ -82,8 +95,9 @@ a błędny wpis kosztuje ten jeden kolor, nie uruchomienie powłoki (D-032).
 accent = "#ff3860"
 ```
 
-**Następny krok: M1 krok 6** — licznik klatek `GOSTUI_STATS=1`. Kroki rozpisane
-w [`docs/01-strategia-dev-test.md`](docs/01-strategia-dev-test.md) §4.
+**Następny krok: M2 krok 4** — wejście: `wl_seat` z `xkbcommon` faktycznie routowany, fokus
+podążający za kafelkiem, tryb wskaźnika dla telefonu (D-022) i `wl_touch` jako osobna ścieżka.
+Kroki rozpisane w [`docs/01-strategia-dev-test.md`](docs/01-strategia-dev-test.md) §4.
 
 Budowanie w kontenerze, bez zależności od dystrybucji:
 
