@@ -46,7 +46,7 @@ use smithay::wayland::shm::{ShmHandler, ShmState};
 use smithay::{
     delegate_compositor, delegate_data_device, delegate_output, delegate_pointer_constraints,
     delegate_primary_selection, delegate_relative_pointer, delegate_seat, delegate_shm,
-    delegate_xdg_decoration, delegate_xdg_shell,
+    delegate_xdg_decoration,
 };
 
 impl CompositorHandler for State {
@@ -357,7 +357,6 @@ impl XdgShellHandler for State {
 
 delegate_compositor!(State);
 delegate_shm!(State);
-delegate_xdg_shell!(State);
 delegate_output!(State);
 delegate_seat!(State);
 delegate_data_device!(State);
@@ -365,3 +364,84 @@ delegate_primary_selection!(State);
 delegate_relative_pointer!(State);
 delegate_pointer_constraints!(State);
 delegate_xdg_decoration!(State);
+
+/// xdg-shell is delegated interface by interface instead of through
+/// `delegate_xdg_shell!`, because one of the five has to be filtered first.
+///
+/// These four are what the macro would have generated, unchanged. The fifth,
+/// `xdg_surface`, is [below](#impl-Dispatch<XdgSurface,+XdgSurfaceUserData>).
+mod xdg_delegation {
+    use super::State;
+    use smithay::reexports::wayland_protocols::xdg::shell::server::{
+        xdg_popup, xdg_positioner, xdg_toplevel, xdg_wm_base,
+    };
+    use smithay::reexports::wayland_server::{delegate_dispatch, delegate_global_dispatch};
+    use smithay::wayland::shell::xdg::{
+        XdgPositionerUserData, XdgShellState, XdgShellSurfaceUserData, XdgWmBaseUserData,
+    };
+
+    delegate_global_dispatch!(State: [xdg_wm_base::XdgWmBase: ()] => XdgShellState);
+    delegate_dispatch!(State: [xdg_wm_base::XdgWmBase: XdgWmBaseUserData] => XdgShellState);
+    delegate_dispatch!(State: [xdg_positioner::XdgPositioner: XdgPositionerUserData] => XdgShellState);
+    delegate_dispatch!(State: [xdg_popup::XdgPopup: XdgShellSurfaceUserData] => XdgShellState);
+    delegate_dispatch!(State: [xdg_toplevel::XdgToplevel: XdgShellSurfaceUserData] => XdgShellState);
+}
+
+/// `xdg_surface`, with one request checked before smithay sees it.
+///
+/// # Why this exists
+///
+/// `set_window_geometry` carries four signed integers straight from the client.
+/// smithay 0.7.0 passes them into `Size::new`, which **panics** on a negative
+/// size — and a panic in the compositor is every application the user had open,
+/// gone. `xdg_surface.set_window_geometry(0, 0, -1, -1)` is four words on a
+/// socket, so any client, hostile or merely buggy, can end the session.
+///
+/// Found by `gostui-fuzz-client` (`garbage-geometry`) on 2026-08-02, on the
+/// first full run. It is a real fault in a dependency, not a theoretical one:
+/// the fix cannot wait for upstream, because the release profile sets
+/// `panic = "abort"` and no `catch_unwind` can stand between them.
+///
+/// # Why only negative values
+///
+/// Negative is unambiguously wrong and is what panics. The protocol also calls
+/// a zero width or height invalid, but smithay handles those without dying, and
+/// disconnecting a client over a value that has always worked would be a
+/// regression bought with somebody else's window. Fixing the crash is this
+/// change; enforcing the rest of the protocol is not.
+impl
+    smithay::reexports::wayland_server::Dispatch<
+        smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface,
+        smithay::wayland::shell::xdg::XdgSurfaceUserData,
+    > for State
+{
+    fn request(
+        state: &mut Self,
+        client: &Client,
+        resource: &smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::XdgSurface,
+        request: smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface::Request,
+        data: &smithay::wayland::shell::xdg::XdgSurfaceUserData,
+        dhandle: &smithay::reexports::wayland_server::DisplayHandle,
+        data_init: &mut smithay::reexports::wayland_server::DataInit<'_, Self>,
+    ) {
+        use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_surface;
+        use smithay::reexports::wayland_server::Resource as _;
+
+        if let xdg_surface::Request::SetWindowGeometry { width, height, .. } = request {
+            if width < 0 || height < 0 {
+                // The client broke the protocol, so the client is what dies.
+                resource.post_error(
+                    xdg_surface::Error::InvalidSize,
+                    "window geometry must not have a negative size",
+                );
+                return;
+            }
+        }
+
+        <XdgShellState as smithay::reexports::wayland_server::Dispatch<
+            xdg_surface::XdgSurface,
+            smithay::wayland::shell::xdg::XdgSurfaceUserData,
+            Self,
+        >>::request(state, client, resource, request, data, dhandle, data_init);
+    }
+}
