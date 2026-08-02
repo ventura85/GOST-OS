@@ -632,6 +632,7 @@ impl State {
                 id: p.window.0 as u64,
                 rect: p.rect,
                 src: self.buffer_offset(p.window),
+                focused: self.windows.focused() == Some(p.window),
                 // Only a fullscreen window goes over the bars, and the model is
                 // what knows which one that is.
                 over_bars: self.windows.get(p.window).is_some_and(|w| w.fullscreen),
