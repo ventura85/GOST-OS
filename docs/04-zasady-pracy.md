@@ -291,6 +291,19 @@ WAYLAND_DISPLAY=wayland-gostui wayland-info   # lista globali
 WAYLAND_DISPLAY=wayland-gostui foot           # startuje; okna jeszcze nie widać (krok 3 M2)
 ```
 
+**Skróty powłoki kolidują z XFCE i to nie jest usterka.** `xfwm4` trzyma `Super+Tab`
+i `Super`+strzałki, a `xfsettingsd` `Super+F` — klawisz złapany przez sesję-gospodarza nie dociera
+do zagnieżdżonego okna w ogóle, więc `Super+Tab` wygląda na zepsuty, a `Super+F` zamiast pełnego
+ekranu otwiera menedżer plików. Na gołym metalu (M4) problem nie istnieje. Do pracy w oknie:
+
+```bash
+scripts/xfce-zwolnij-skroty.sh              # zwalnia sześć kolidujących skrótów
+scripts/xfce-zwolnij-skroty.sh --przywroc   # oddaje dokładnie to, co było
+```
+
+To zmiana w **sesji użytkownika**, nie w projekcie — dlatego jest skryptem uruchamianym świadomie,
+a nie czymś, co dzieje się przy starcie kompozytora.
+
 `WAYLAND_DISPLAY` ustawiaj **klientowi, nie kompozytorowi** — kompozytor jest gościem w sesji
 XFCE i sam nie łączy się ze swoim gniazdem. Gniazdo nazywa się `wayland-gostui`; jeśli jest
 zajęte (druga instancja), bierzemy automatyczne i piszemy jakie.

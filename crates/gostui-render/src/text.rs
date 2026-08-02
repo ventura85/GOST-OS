@@ -87,6 +87,12 @@ pub struct SurfaceSlot {
     /// a band of shadow inside the tile and pushes the window off by that much.
     /// Everything to the left of and above this point is skipped.
     pub src: (i32, i32),
+    /// The window that has the keyboard.
+    ///
+    /// Marked on the slot rather than passed beside it because focus is a
+    /// property of one window among several, and a separate "which id is
+    /// focused" field is a second place for the answer to be wrong.
+    pub focused: bool,
     /// Drawn **over** the two bars instead of under them.
     ///
     /// True for exactly one thing: a fullscreen window. Everywhere else the bars
@@ -628,6 +634,7 @@ mod tests {
             id: 7,
             rect: Rect::new(1, 2, 3, 4),
             src: (0, 0),
+            focused: false,
             over_bars: false,
         };
         let list = vec![

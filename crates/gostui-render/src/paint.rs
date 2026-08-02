@@ -99,6 +99,7 @@ pub fn display_list(view: &ShellView<'_>, theme: &Theme) -> Vec<Primitive> {
     slider(&mut out, z.apps, view.tabs, p);
     for slot in view.surfaces.iter().filter(|s| !s.over_bars) {
         out.push(Primitive::Surface(*slot));
+        focus_ring(&mut out, slot, theme);
     }
     top_bar(&mut out, z.top_bar, view, theme);
     bottom_bar(&mut out, z.bottom_bar, view, p);
@@ -152,6 +153,29 @@ fn push_outline(out: &mut Vec<Primitive>, rect: Rect, t: i32, colour: Rgba) {
         Rect::new(rect.right() - t, rect.y(), t, rect.h()),
         colour,
     );
+}
+
+/// The whole of a window's decoration: a ring around the one that has focus.
+///
+/// **There is no title bar, and that is a decision, not an omission** (D-025).
+/// A window here is never dragged and never resized by its edge, so a strip to
+/// grab it by would be decoration in the literal sense — it would cost every
+/// tile a slice of height and buy nothing. What a title bar is normally *for*
+/// already exists elsewhere: the window's name and the way to reach it live on
+/// the bottom bar, which is a touch target on a phone as well as a click target
+/// on a monitor.
+///
+/// Drawn inside the window's own rectangle rather than in the gap between tiles:
+/// the gap is a theme setting and can be zero, and a focus ring that disappears
+/// when somebody sets `inner_gap = 0` is a focus ring that cannot be relied on.
+/// The cost is the outermost two pixels of the client's picture.
+fn focus_ring(out: &mut Vec<Primitive>, slot: &SurfaceSlot, t: &Theme) {
+    // A fullscreen window covers the screen on purpose; ringing it would put a
+    // frame around a film.
+    if !slot.focused || slot.over_bars {
+        return;
+    }
+    push_outline(out, slot.rect, t.metrics.focus_width, t.palette.accent);
 }
 
 fn top_bar(out: &mut Vec<Primitive>, bar: Rect, view: &ShellView<'_>, t: &Theme) {
@@ -311,6 +335,7 @@ mod tests {
             id: 0,
             rect: z.apps,
             src: (0, 0),
+            focused: false,
             over_bars: false,
         };
         let view = ShellView {
@@ -346,6 +371,100 @@ mod tests {
     }
 
     #[test]
+    fn the_focused_window_gets_a_ring_and_the_others_get_nothing() {
+        // The whole of our decoration. A window is never dragged (D-025), so it
+        // needs no strip to be dragged by — and the tile keeps the height a title
+        // bar would have taken.
+        let (tabs, windows) = view_fixture();
+        let z = zones(Rect::new(0, 0, 1920, 1080), BarHeights::default());
+        let theme = theme_fixture();
+        let slots = [
+            SurfaceSlot {
+                id: 0,
+                rect: Rect::new(0, 48, 960, 984),
+                src: (0, 0),
+                focused: true,
+                over_bars: false,
+            },
+            SurfaceSlot {
+                id: 1,
+                rect: Rect::new(964, 48, 956, 984),
+                src: (0, 0),
+                focused: false,
+                over_bars: false,
+            },
+        ];
+        let view = ShellView {
+            zones: z,
+            tabs: &tabs,
+            windows: &windows,
+            focused_window: Some(0),
+            clock: None,
+            surfaces: &slots,
+        };
+        let list = display_list(&view, &theme);
+        let accents: Vec<Rect> = list
+            .iter()
+            .filter_map(|p| match p {
+                Primitive::Fill(f) if f.colour == theme.palette.accent => Some(f.rect),
+                _ => None,
+            })
+            .collect();
+
+        // The four edges are named rather than counted: the slider's active card
+        // is drawn in the same accent colour and sits inside the same tile, so a
+        // count would count it too.
+        let t = theme.metrics.focus_width;
+        let r = slots[0].rect;
+        for edge in [
+            Rect::new(r.x(), r.y(), r.w(), t),
+            Rect::new(r.x(), r.bottom() - t, r.w(), t),
+            Rect::new(r.x(), r.y(), t, r.h()),
+            Rect::new(r.right() - t, r.y(), t, r.h()),
+        ] {
+            assert!(accents.contains(&edge), "missing ring edge {edge:?}");
+        }
+
+        // And nothing of the sort around the window that does not have focus.
+        let u = slots[1].rect;
+        assert!(
+            !accents.contains(&Rect::new(u.x(), u.y(), u.w(), t)),
+            "an unfocused window must wear no ring"
+        );
+    }
+
+    #[test]
+    fn a_fullscreen_window_wears_no_ring() {
+        let (tabs, windows) = view_fixture();
+        let area = Rect::new(0, 0, 1920, 1080);
+        let z = zones(area, BarHeights::default());
+        let theme = theme_fixture();
+        let slots = [SurfaceSlot {
+            id: 0,
+            rect: area,
+            src: (0, 0),
+            focused: true,
+            over_bars: true,
+        }];
+        let view = ShellView {
+            zones: z,
+            tabs: &tabs,
+            windows: &windows,
+            focused_window: Some(0),
+            clock: None,
+            surfaces: &slots,
+        };
+        let list = display_list(&view, &theme);
+        // Nothing at all after the surface: a frame around a film is not a frame
+        // anybody asked for.
+        let surface_at = list
+            .iter()
+            .position(|p| matches!(p, Primitive::Surface(_)))
+            .expect("the window is in the list");
+        assert_eq!(surface_at, list.len() - 1);
+    }
+
+    #[test]
     fn a_fullscreen_window_is_the_one_thing_drawn_over_the_bars() {
         // The exception to the rule above, and the only one. A film with a bar
         // across it is not fullscreen — so this surface goes last, after both
@@ -358,12 +477,14 @@ mod tests {
                 id: 0,
                 rect: z.apps,
                 src: (0, 0),
+                focused: false,
                 over_bars: false,
             },
             SurfaceSlot {
                 id: 1,
                 rect: area,
                 src: (0, 0),
+                focused: false,
                 over_bars: true,
             },
         ];
