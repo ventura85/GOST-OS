@@ -39,15 +39,27 @@ Stan na tej stacji (2026-07-30): **wszystkie zainstalowane.**
 
 Stan na tej stacji: **wszystkie zainstalowane.**
 
-**Brakuje do jednego kryterium M2:**
+**Klienci do domknięcia M2 (zainstalowane 2026-08-02):**
 
-| Pakiet | Po co | Stan |
-|---|---|---|
-| `xdg-desktop-portal` + `xdg-desktop-portal-gtk` | GTK3 kieruje **okno wyboru pliku** przez portal; bez niego „Otwórz…" nie tworzy żadnego okna i kryterium „okno wyboru pliku pływa, nie kafelkuje" (D-025, pułapka 2) nie ma jak zostać sprawdzone | **brak** |
+| Pakiet | Po co |
+|---|---|
+| `gtk-4-examples` | `gtk4-demo` — kryterium „GTK4 działa"; sprawdza też, czy klient bez `linux-dmabuf` spada na `wl_shm` |
+| `qt6-base-examples` | druga rodzina toolkitów; `widgets/dialogs/standarddialogs` rysuje okno bez własnego nagłówka, więc weryfikuje ramkę fokusu z D-043 |
+| `wl-clipboard` | `wl-copy` / `wl-paste` — dzięki nim test schowka jest skryptem (`scripts/test-schowek.sh`), a nie zaznaczaniem myszą |
+| `xdg-desktop-portal` + `xdg-desktop-portal-gtk` | GTK3 kieruje przez portal **natywne** okno wyboru pliku |
 
 ```bash
-sudo apt install xdg-desktop-portal xdg-desktop-portal-gtk
+sudo apt install gtk-4-examples qt6-base-examples wl-clipboard \
+                 xdg-desktop-portal xdg-desktop-portal-gtk
 ```
+
+**Do samego kryterium „okno wyboru pliku pływa" portal okazał się niepotrzebny — i to jest
+informacja, nie ciekawostka.** Portal otwiera okno w **osobnym procesie**, jako toplevel bez
+rodzica, więc sprawdza coś innego niż pułapka 2 z D-025. Dialog z rodzicem daje
+`Gtk.FileChooserDialog` (nie `FileChooserNative`), który rysuje własne okno z `set_parent` —
+i to on wykrył usterkę opisaną w `docs/01` §4, M2 krok 6. Kilkanaście linii w Pythonie przez
+`python3-gi` (już zainstalowane) wystarczyło; `xdotool` do klikania nie był potrzebny i nie jest
+zainstalowany.
 
 ## Narzędzia deweloperskie (cargo)
 

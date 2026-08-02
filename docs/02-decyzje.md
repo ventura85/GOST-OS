@@ -1126,6 +1126,65 @@ rozłożony — nie że potrzebuje efektu.
 
 ---
 
+## D-045 — Klient-fuzzer mieszka w osobnym crate i mówi protokołem obiema stronami
+**Status:** ✅ **PRZYJĘTA** (2026-08-02) — wdrożona w `crates/gostui-fuzz-client`
+
+**Kontekst.** Zasada odporności z `docs/04-zasady-pracy.md` mówi, że błąd protokołu ma zabić
+klienta, a nie kompozytor, i kryterium M2 wymaga tego wprost. Do 2026-08-02 nic tego nie
+sprawdzało — a zasada, której nikt nie egzekwuje, jest życzeniem. Pierwszy pełny przebieg
+narzędzia znalazł **panikę osiągalną czterema słowami na gnieździe** (patrz niżej), więc
+pytanie „czy warto" jest już odpowiedziane pomiarem.
+
+**Decyzja.** Fuzzer jest **osobnym crate'em** `gostui-fuzz-client`, nie kolejną binarką
+w `gostui-compositor`, i wolno mu zależeć od `wayland-client`.
+
+**Dlaczego to nie łamie D-016.** D-016 trzyma `wayland-*` **z dala od logiki** — model kart,
+kafelkowanie, mapa skrótów mają być testowalne bez kompozytora. Fuzzer nie jest logiką: mówienie
+protokołem jest całym jego zadaniem, a testowalny jest tylko z działającym kompozytorem
+z definicji. Osobny crate, bo żaden pojedynczy crate nie powinien trzymać **obu stron** tego
+samego protokołu — `gostui-compositor` ma już `wayland-server`. Zależność nie jest nowa:
+`wayland-client` 0.31 był w `Cargo.lock` przez `winit`, więc `cargo deny` dostaje krawędź
+w grafie, a nie pakiet do przejrzenia.
+
+**Dwie rzeczy konstrukcyjne, które wynikły z pomiaru, nie z projektu:**
+
+1. **Klient sam otwiera gniazdo i klonuje je** przed oddaniem `Connection`. Dzięki temu jeden
+   klient robi poprawne uzgodnienie przez bibliotekę (globale, pool `wl_shm` z prawdziwym
+   deskryptorem) i wysyła surowe śmieci na to samo połączenie. Połowa ataków jest
+   **niewyrażalna** przez typowane API — żądanie do nieistniejącego obiektu, opcode spoza
+   interfejsu, nagłówek kłamiący o długości — a fuzzer atakujący z pustego stanu nie dosięga
+   niczego ciekawego.
+2. **Odczyt odpowiedzi nigdy nie blokuje.** Kompozytor, który dostał zapowiedź 64 bajtów
+   i 8 bajtów treści, **słusznie** zatrzymuje fragment i obsługuje dalej innych klientów
+   (zmierzone: `wayland-info` bindował wszystkie globale w trakcie scenariusza wiszącego cztery
+   minuty). Czekanie na odpowiedź, której poprawne zachowanie nigdy nie przyśle, zawiesza
+   **fuzzera na kompozytorze zdającym egzamin** — tak wyglądał pierwszy przebieg. Biblioteka
+   czeka w `poll()`, którego nie skraca żadna flaga gniazda, więc odpowiedź czytana jest surowo
+   z timeoutem, a „brak odpowiedzi" jest osobnym, poprawnym wynikiem.
+
+**Kryterium zaliczenia scenariusza nie jest przeżycie klienta** — większość ma zostać wyrzucona.
+Zalicza się wtedy, gdy zaraz po nim **świeże, poprawne połączenie** wykonuje pełny roundtrip po
+`wl_registry`. To odróżnia kompozytor, który się obronił, od takiego, który po cichu umarł
+trzymając gniazdo otwarte. Weryfikacja jest w binarce, nie w skrypcie obok, żeby kod wyjścia
+znaczył coś sam z siebie.
+
+**Nie jest testem `cargo test`** — wymaga działającego kompozytora, którego CI nie ma. CI go
+kompiluje, co dzieje się samo przez `--workspace`.
+
+**Co znalazł pierwszy przebieg (2026-08-02):** `xdg_surface.set_window_geometry(0, 0, -1, -1)`
+→ `Size::new` w smithayu 0.7.0 **panikuje** → cały kompozytor pada, a z nim wszystkie aplikacje
+użytkownika. Usterka jest w zależności, ale czekanie na poprawkę z góry nie wchodzi w grę:
+profil `release` ma `panic = "abort"`, więc żaden `catch_unwind` nie stanie między żądaniem
+klienta a procesem. Stąd xdg-shell jest delegowany **interfejs po interfejsie** zamiast przez
+`delegate_xdg_shell!`, a `xdg_surface` dostaje jedno sprawdzenie przed delegacją.
+Odrzucamy wyłącznie wartości ujemne — zero też jest wbrew protokołowi, ale smithay je przeżywa,
+a rozłączanie klienta za wartość, która zawsze działała, to regresja kupiona cudzym oknem.
+
+**Odniesienie:** D-016, D-027 (`panic = "abort"`), `docs/01-strategia-dev-test.md` §4 M2 krok 6,
+`docs/04-zasady-pracy.md` § Odporność
+
+---
+
 ## Stan rozstrzygnięć (2026-08-01)
 
 **Wszystkie decyzje blokujące start są zamknięte.** M0 może ruszyć.
