@@ -3,9 +3,14 @@
 **/*.rs.bk
 *.pdb
 
-# Artefakty testów
-/tests/golden/*.actual.png
-/tests/golden/*.diff.png
+# Artefakty testów złotych obrazów: to, co test faktycznie narysował, zapisane
+# obok wzorca do obejrzenia. Wzorce (`*.png`) są wersjonowane, te nie.
+#
+# Wzorzec bez wiodącego ukośnika, bo katalog testów leży w crate'cie
+# (`crates/gostui-render/tests/golden/`), a nie w korzeniu repozytorium —
+# zakotwiczona wersja nie pasowała do niczego i pliki robocze przechodziły.
+**/tests/golden/*.actual.png
+**/tests/golden/*.diff.png
 
 # Środowisko lokalne
 .env

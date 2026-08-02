@@ -21,3 +21,9 @@ cosmic-text = { version = "0.19", default-features = false, features = [
 # Encoding only. Chosen over hand-rolling because golden tests must produce files
 # other tools can open, and PNG's zlib stream is not worth reimplementing.
 png = "0.17"
+
+# The golden tests read back what `Canvas::write_png` wrote. Same crate and same
+# version as the dependency above: an integration test links the crate the way
+# any other user would, so it does not inherit `[dependencies]`.
+[dev-dependencies]
+png = "0.17"

@@ -176,9 +176,18 @@ pub fn bottom_bar_layout(bar: Rect, count: usize) -> Vec<Rect> {
 
 /// Place the top bar's elements, dropping what does not fit.
 ///
-/// Order of sacrifice, least useful first: search (reachable by keyboard and
-/// from the menu), then the clock (the phone draws its own), then status.
-/// The menu always stays.
+/// The menu always stays; everything else goes when the room runs out. What
+/// goes **first** is decided by width rather than by a ranking, and the
+/// difference matters enough to write down, because this comment used to claim
+/// a ranking the code does not implement (found by the golden images, which
+/// draw a 420-unit bar and showed the clock gone while search stayed).
+///
+/// Status is anchored right and placed first. The clock wants 160 units in the
+/// middle and loses them to any bar narrow enough that the middle overlaps
+/// either group. Search asks for a square beside the menu, so it survives
+/// widths the clock cannot — which is the behaviour we want on a phone (the
+/// clock is drawn by the phone's own bar, search by touch is not), but it is a
+/// consequence of the arithmetic and not a rule stated anywhere.
 pub fn top_bar_layout(bar: Rect) -> TopBarLayout {
     if bar.w() <= 0 || bar.h() <= 0 {
         return TopBarLayout::default();
