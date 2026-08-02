@@ -1091,6 +1091,41 @@ per aplikacja — jeśli w ogóle — jest tematem na M3, nie kłótnią z toolk
 
 ---
 
+## D-044 — Kierunek wizualny: Final Cartridge III i stary Windows, nie współczesny desktop
+**Status:** ✅ **PRZYJĘTA** (2026-08-02) — potwierdzenie użytkownika po zobaczeniu działającej powłoki
+
+**Kontekst.** Do tej pory wygląd wynikał z zakazów: bez animacji dekoracyjnych (D-021), bez efektów,
+kolory i rozmiary jako dane (D-032). Zakazy mówią, czego **nie** robić, i nie wystarczają, gdy
+w M3 trzeba narysować slider kart, Menu Start i kafle. Po zobaczeniu powłoki z dwoma klientami
+użytkownik nazwał kierunek wprost i to jest materiał na decyzję, a nie na komplement.
+
+**Punkty odniesienia, podane przez użytkownika:** **Final Cartridge III (C64)** i **stary Windows**.
+Wspólne im jest to samo, i to jest treść tej decyzji:
+
+- **płaskie prostokąty i wyraźne krawędzie** zamiast cieni, gradientów i zaokrągleń;
+- **granica między strefami widoczna gołym okiem** — jedna kreska, nie subtelny odcień;
+- **element jest albo aktywny, albo nie**, i widać to z drugiego końca pokoju (stąd ramka fokusu
+  w kolorze akcentu, D-043, a nie delikatne przyciemnienie);
+- **nic nie rusza się bez powodu** — statyczny obraz jest stanem, nie klatką animacji;
+- **gęstość informacji ponad przestronność**: puste miejsce ma być miejscem na treść, nie
+  oddechem między elementami.
+
+**Dlaczego to jest decyzja techniczna, nie gust.** Ten język wizualny jest **zgodny z resztą
+projektu, a nie obok niej**: płaskie prostokąty to dosłownie to, co potrafi lista wyświetlania
+(`Fill` + `Text` + `Surface`), więc ścieżka Pixman i GLES2 rysują je identycznie (D-005, D-027),
+a rysowanie kosztuje tyle, ile trwa zapełnienie pikseli. Cienie i zaokrąglenia wymagałyby
+mieszania per piksel na obu ścieżkach — czyli dokładnie tego, czego na starym PC i telefonie
+nie chcemy płacić. **Estetyka wybrana tu zgadza się z budżetem wydajności**, i to jest powód,
+dla którego zostaje zapisana, a nie tylko zapamiętana.
+
+**Konsekwencja dla M3:** slider kart, Menu Start i kafle żywe (D-033) projektujemy w tym języku.
+Jeśli któryś element wymaga cienia albo animacji, żeby był czytelny, to znaczy, że jest źle
+rozłożony — nie że potrzebuje efektu.
+
+**Odniesienie:** D-021, D-031, D-032, D-033, D-043, `gostos.md` §B
+
+---
+
 ## Stan rozstrzygnięć (2026-08-01)
 
 **Wszystkie decyzje blokujące start są zamknięte.** M0 może ruszyć.
@@ -1126,6 +1161,7 @@ per aplikacja — jeśli w ogóle — jest tematem na M3, nie kłótnią z toolk
 | D-041 | Wejście | Powłoka bierze wyłącznie `Super`; klawisze w core jako liczby bez xkb; fokus od kliku |
 | D-042 | Pełny ekran | Zakrywa oba paski; wyjście `Super+F` należy do powłoki, nie do klienta |
 | D-043 | Dekoracje | Bez pasków tytułu; sama ramka fokusu, tożsamość okna na dolnym pasku |
+| D-044 | Kierunek wizualny | Final Cartridge III / stary Windows: płaskie prostokąty, ostre krawędzie, gęstość |
 
 **Rekomendacje przyjmowane domyślnie** (bez sensownej alternatywy, do zakwestionowania w każdej chwili):
 D-006 greeter poza Core, D-007 `Super+←/→`, D-008 karta = siatka skrótów,

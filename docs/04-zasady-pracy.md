@@ -12,7 +12,7 @@ istniejącego DE. Trzy strefy ekranu: górny pasek (system), środek (slider kar
 dolny pasek (przełącznik okien). Docelowo także własny menedżer plików, menedżer usług i panel
 sterowania.
 
-**Stan: M0 i M1 zamknięte, M2 kroki 1–4 zrobione (2026-08-02).** Istnieją i są
+**Stan: M0 i M1 zamknięte, M2 kroki 1–5 zrobione (2026-08-02).** Istnieją i są
 przetestowane: `gostui-core` (geometria, wyjścia, **strefy ekranu**, kafelkowanie, **model okien**,
 **wejście** — trafienie w strefę i tablica skrótów, D-041, karty, **motyw** — kolory, rozmiary
 i czcionki jako dane, D-032),
@@ -33,7 +33,7 @@ rysuje sesja gospodarza, nie my** (własny wchodzi z M4 — na tty nie ma kto go
 Zostaje też `linux-dmabuf` — ścieżka CPU takiego bufora nie odczyta i **świadomie pomija**
 takie okno zamiast rysować je źle.
 
-`cargo test --workspace` — 202 testy, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
+`cargo test --workspace` — 210 testów, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
 `cargo run -p gostui-compositor -- --png ui.png` — rysuje interfejs do dwóch PNG-ów
 (monitor i telefon) z tego samego stanu, z zegarem w górnym pasku.
 `cargo run -p gostui-compositor -- --backend winit [--renderer gles2|pixman] [--frames n]` —
@@ -65,6 +65,13 @@ dlatego wypis jest per klatka, a nie co sekundę, jak mówił pierwotny plan.
 
 **Następny krok: M2 krok 6** — domknięcie: `gtk4-demo` i Qt6, kopiuj-wklej w obie strony,
 klient-fuzzer. Kroki M2 z kryteriami: `docs/01-strategia-dev-test.md` §4, sekcja M2.
+
+**Kierunek wizualny jest nazwany, nie domyślny (D-044):** płaskie prostokąty, ostre krawędzie,
+widoczne granice stref, gęstość informacji ponad przestronność — Final Cartridge III i stary
+Windows, nie współczesny desktop. To nie jest gust obok architektury, tylko z nią zgodne:
+płaskie prostokąty to dokładnie to, co potrafi lista wyświetlania, więc obie ścieżki renderera
+dają ten sam obraz, a rysowanie kosztuje tyle, ile zapełnienie pikseli. **Jeśli element wymaga
+cienia albo animacji, żeby był czytelny, jest źle rozłożony.**
 
 **Okno nie ma paska tytułu i to jest decyzja (D-043).** Dekoracją jest sama ramka fokusu:
 okien się nie przesuwa (D-025), więc pasek do chwytania byłby kosztem wysokości każdego kafelka
