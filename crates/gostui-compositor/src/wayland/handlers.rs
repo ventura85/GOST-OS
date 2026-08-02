@@ -37,6 +37,8 @@ use smithay::wayland::selection::primary_selection::{
     PrimarySelectionHandler, PrimarySelectionState,
 };
 use smithay::wayland::selection::SelectionHandler;
+use smithay::reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode as DecorationMode;
+use smithay::wayland::shell::xdg::decoration::XdgDecorationHandler;
 use smithay::wayland::shell::xdg::{
     PopupSurface, PositionerState, ToplevelSurface, XdgShellHandler, XdgShellState,
 };
@@ -44,7 +46,7 @@ use smithay::wayland::shm::{ShmHandler, ShmState};
 use smithay::{
     delegate_compositor, delegate_data_device, delegate_output, delegate_pointer_constraints,
     delegate_primary_selection, delegate_relative_pointer, delegate_seat, delegate_shm,
-    delegate_xdg_shell,
+    delegate_xdg_decoration, delegate_xdg_shell,
 };
 
 impl CompositorHandler for State {
@@ -159,6 +161,34 @@ impl PointerConstraintsHandler for State {
     }
 }
 
+/// Decorations: ours, always.
+///
+/// A tiled window may not draw its own title bar, border or shadow (D-025) — the
+/// frame is the compositor's business, the contents are the client's, and a
+/// window that draws both ends up with two title bars in a tile that has room
+/// for none. So every client is told `ServerSide`, whatever it asked for.
+///
+/// **This works for Qt and is ignored by GTK, and that is not a bug we can fix
+/// here.** GTK does not implement `xdg-decoration` at all: it draws client-side
+/// decorations unconditionally. The consequence is visible rather than harmful —
+/// a GTK window in a tile carries a header bar it did not need — and the answer
+/// is a decoration policy per application in the theme (M3), not an argument
+/// with a toolkit.
+impl XdgDecorationHandler for State {
+    fn new_decoration(&mut self, toplevel: ToplevelSurface) {
+        self.decorate(&toplevel);
+    }
+
+    fn request_mode(&mut self, toplevel: ToplevelSurface, _mode: DecorationMode) {
+        // The client is allowed to prefer; it is not allowed to decide.
+        self.decorate(&toplevel);
+    }
+
+    fn unset_mode(&mut self, toplevel: ToplevelSurface) {
+        self.decorate(&toplevel);
+    }
+}
+
 /// The clipboard.
 ///
 /// Copy-paste between two clients working in both directions is an M2
@@ -211,19 +241,39 @@ impl XdgShellHandler for State {
         self.request_redraw();
     }
 
-    fn new_popup(&mut self, surface: PopupSurface, _positioner: PositionerState) {
-        // Popups float (D-025 trap 2) and are positioned by their own
-        // positioner, which is protocol data. Placing them properly is the next
-        // step; sending the configure they are waiting for is what keeps a menu
-        // from hanging in the meantime.
+    fn new_popup(&mut self, surface: PopupSurface, positioner: PositionerState) {
+        // A popup floats (D-025, trap 2) exactly where `xdg_positioner` says,
+        // constrained to the application zone — a menu that slid under the top
+        // bar would have entries nobody can click.
+        let parent = self.parent_rect(&surface);
+        let window = self
+            .wayland
+            .map_popup(&mut self.windows, surface.clone(), positioner, parent);
+        match window {
+            Some(w) => tracing::debug!(?w, "popup mapped"),
+            None => tracing::debug!("popup with no parent we know: ignored"),
+        }
         if let Err(e) = surface.send_configure() {
+            // A refused configure means the popup is already gone. The client
+            // gets the protocol error, we keep running.
             tracing::debug!("popup configure refused: {e}");
         }
+        self.request_redraw();
+    }
+
+    fn popup_destroyed(&mut self, surface: PopupSurface) {
+        let gone = self
+            .wayland
+            .unmap_popup(&mut self.windows, surface.wl_surface());
+        tracing::debug!(count = gone.len(), "popup destroyed");
+        self.request_redraw();
     }
 
     fn grab(&mut self, _surface: PopupSurface, _seat: WlSeat, _serial: Serial) {
-        // Pointer grabs need a seat, and the seat arrives with input. Until then
-        // a menu simply does not grab — it still shows and still closes.
+        // An explicit grab would take the pointer and keyboard away from
+        // everything else until the menu closes. Not implemented yet, and the
+        // honest consequence is that a menu closes on the client's own logic
+        // rather than on a click elsewhere — visible, but not broken.
     }
 
     fn reposition_request(
@@ -232,11 +282,15 @@ impl XdgShellHandler for State {
         positioner: PositionerState,
         token: u32,
     ) {
-        surface.with_pending_state(|state| {
-            state.geometry = positioner.get_geometry();
-            state.positioner = positioner;
-        });
+        // A menu being re-anchored, typically because a submenu opened near an
+        // edge. Same placement path as the first time, so the two cannot drift.
+        let parent = self.parent_rect(&surface);
+        if let Some(window) = self.wayland.window_of(surface.wl_surface()) {
+            self.wayland
+                .position_popup(&mut self.windows, window, positioner, parent);
+        }
         surface.send_repositioned(token);
+        self.request_redraw();
     }
 
     fn title_changed(&mut self, surface: ToplevelSurface) {
@@ -310,3 +364,4 @@ delegate_data_device!(State);
 delegate_primary_selection!(State);
 delegate_relative_pointer!(State);
 delegate_pointer_constraints!(State);
+delegate_xdg_decoration!(State);

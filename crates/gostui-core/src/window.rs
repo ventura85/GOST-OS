@@ -55,6 +55,22 @@ pub struct Window {
     /// toplevel — and for a parentless dialog, which is a client bug we tolerate
     /// by centring it on the output.
     pub parent: Option<WindowId>,
+    /// Where a popup ended up, relative to the top-left of its parent.
+    ///
+    /// **Not our layout decision, and that is the point.** A popup's position
+    /// comes from `xdg_positioner`: the client says which edge of what to anchor
+    /// to and how to behave when the result would fall off the screen, and the
+    /// protocol prescribes the answer down to the order of the adjustments
+    /// (flip, then slide, then resize). Re-deriving that here would be
+    /// reinventing something standardised, and getting it subtly wrong is how
+    /// menus end up half off the screen.
+    ///
+    /// So the compositor computes it and the model remembers it — because the
+    /// picture and the hit test have to agree on where the menu is, and the only
+    /// way to guarantee that is for both to read one field.
+    ///
+    /// `None` for everything that is not a positioned popup.
+    pub position: Option<Rect>,
     pub fullscreen: bool,
     pub output: OutputId,
 }
@@ -179,6 +195,7 @@ impl WindowModel {
             min_size: Size::new(1, 1),
             size: Size::new(640, 480),
             parent: None,
+            position: None,
             fullscreen: false,
             output,
         });
@@ -222,6 +239,7 @@ impl WindowModel {
             min_size: Size::new(1, 1),
             size,
             parent: Some(parent),
+            position: None,
             fullscreen: false,
             output,
         });
@@ -320,6 +338,23 @@ impl WindowModel {
 
     pub fn focused(&self) -> Option<WindowId> {
         self.focus
+    }
+
+    /// Record where a popup was positioned, relative to its parent's top-left.
+    ///
+    /// The compositor works this out from `xdg_positioner` (see
+    /// [`Window::position`]) and hands the answer here so that the renderer and
+    /// the hit test read the same rectangle. Ignored for anything that is not a
+    /// popup: a dialog floats centred over its parent and a toplevel is tiled,
+    /// and neither gets to name its own place (D-025).
+    pub fn set_position(&mut self, id: WindowId, rect: Rect) -> bool {
+        match self.get_mut(id) {
+            Some(w) if w.role == SurfaceRole::Popup => {
+                w.position = Some(rect);
+                true
+            }
+            _ => false,
+        }
     }
 
     /// Move focus one step along the bottom bar, wrapping around.
@@ -423,6 +458,14 @@ impl WindowModel {
     /// `area` is the application zone from [`shell::zones`](crate::shell::zones),
     /// never the whole output: the bars are not window space.
     ///
+    /// `screen` is the whole output, and exactly one kind of window may use it —
+    /// a fullscreen one. That is the single case where a window is allowed to
+    /// cover the bars, because a film with a bar across it is not fullscreen and
+    /// every application means the same thing by the word. The escape is
+    /// `Super+F`, which belongs to the shell and works even when the application
+    /// stops answering (D-041: the shell owns `Super`, and this is what owning it
+    /// is for).
+    ///
     /// Tiled windows come first, then the floating children of whatever is
     /// visible. A child of a waiting window is not placed — its parent is not on
     /// screen, so neither is it.
@@ -431,7 +474,14 @@ impl WindowModel {
     /// their real position comes from `xdg_positioner`, which is protocol data
     /// and therefore the compositor's to apply. What core decides is that a popup
     /// *floats*, never that it takes a tile.
-    pub fn layout(&self, output: OutputId, area: Rect, split: Split, gaps: Gaps) -> Vec<Placed> {
+    pub fn layout(
+        &self,
+        output: OutputId,
+        area: Rect,
+        screen: Rect,
+        split: Split,
+        gaps: Gaps,
+    ) -> Vec<Placed> {
         let Some(slot) = self.slot(output) else {
             return Vec::new();
         };
@@ -447,12 +497,13 @@ impl WindowModel {
                 // its own size, centred: better a floating window than one
                 // clipped below its minimum.
                 Placement::Floating => {
-                    let size = if w.fullscreen {
-                        area.size
+                    if w.fullscreen {
+                        screen
                     } else {
-                        Size::new(w.size.w.max(w.min_size.w), w.size.h.max(w.min_size.h))
-                    };
-                    centred(size, area)
+                        let size =
+                            Size::new(w.size.w.max(w.min_size.w), w.size.h.max(w.min_size.h));
+                        centred(size, area)
+                    }
                 }
             };
             out.push(Placed {
@@ -482,9 +533,20 @@ impl WindowModel {
             let Some(anchor) = visible.iter().find(|p| p.window == parent) else {
                 continue;
             };
+            // A positioned popup sits where the protocol put it; everything else
+            // floats centred over its parent.
+            let rect = match w.position {
+                Some(p) => Rect::new(
+                    anchor.rect.x() + p.x(),
+                    anchor.rect.y() + p.y(),
+                    p.w(),
+                    p.h(),
+                ),
+                None => centred(w.size, anchor.rect),
+            };
             out.push(Placed {
                 window: w.id,
-                rect: centred(w.size, anchor.rect),
+                rect,
                 placement: Placement::Floating,
             });
         }
@@ -514,6 +576,10 @@ mod tests {
 
     const MONITOR: Rect = Rect::new(0, 40, 1920, 1000);
     const PHONE: Rect = Rect::new(0, 40, 360, 700);
+    /// The whole output the zones above were cut from — what a fullscreen window
+    /// gets, bars included.
+    const SCREEN: Rect = Rect::new(0, 0, 1920, 1080);
+    const PHONE_SCREEN: Rect = Rect::new(0, 0, 360, 800);
     const A: OutputId = OutputId(0);
     const B: OutputId = OutputId(1);
 
@@ -530,6 +596,79 @@ mod tests {
         assert_eq!(m.tiled(A), &[w]);
         assert_eq!(m.focused(), Some(w));
         assert!(m.waiting(A).is_empty());
+    }
+
+    #[test]
+    fn a_positioned_popup_sits_where_the_protocol_put_it() {
+        let mut m = model(2);
+        let parent = m.open_toplevel(A, "gedit", "Notes");
+        let popup = m
+            .open_child(parent, SurfaceRole::Popup, Size::new(200, 120), "menu")
+            .expect("popup opens on an existing parent");
+        assert!(m.set_position(popup, Rect::new(40, 24, 200, 120)));
+
+        let placed = m.layout(A, MONITOR, SCREEN, Split::EVEN, Gaps::default());
+        let tile = placed.iter().find(|p| p.window == parent).unwrap().rect;
+        let menu = placed.iter().find(|p| p.window == popup).unwrap();
+        // Relative to the parent, not to the output: the tile is what moves when
+        // a second window opens, and the menu has to move with it.
+        assert_eq!(menu.rect, Rect::new(tile.x() + 40, tile.y() + 24, 200, 120));
+        assert_eq!(menu.placement, Placement::Floating);
+    }
+
+    #[test]
+    fn a_popup_moves_with_its_parents_tile() {
+        let mut m = model(2);
+        let first = m.open_toplevel(A, "foot", "Terminal");
+        let popup = m
+            .open_child(first, SurfaceRole::Popup, Size::new(100, 80), "menu")
+            .unwrap();
+        m.set_position(popup, Rect::new(10, 10, 100, 80));
+        let before = m
+            .layout(A, MONITOR, SCREEN, Split::EVEN, Gaps::default())
+            .iter()
+            .find(|p| p.window == popup)
+            .unwrap()
+            .rect;
+
+        // A second window halves the first one's tile, so the menu must follow.
+        m.open_toplevel(A, "gedit", "Notes");
+        let after = m
+            .layout(A, MONITOR, SCREEN, Split::EVEN, Gaps::default())
+            .iter()
+            .find(|p| p.window == popup)
+            .unwrap()
+            .rect;
+        assert_eq!(after.size, before.size, "a popup is not resized by tiling");
+        assert_eq!(after.x(), before.x(), "the first tile keeps its origin");
+    }
+
+    #[test]
+    fn only_a_popup_gets_to_name_its_own_position() {
+        // D-025: a toplevel is tiled and a dialog is centred over its parent.
+        // Neither may place itself, so the setter refuses them rather than
+        // quietly storing a position that layout would ignore.
+        let mut m = model(2);
+        let top = m.open_toplevel(A, "foot", "Terminal");
+        let dialog = m
+            .open_child(top, SurfaceRole::Dialog, Size::new(300, 200), "Zapisz jako")
+            .unwrap();
+        assert!(!m.set_position(top, Rect::new(0, 0, 10, 10)));
+        assert!(!m.set_position(dialog, Rect::new(0, 0, 10, 10)));
+        assert!(m.get(dialog).unwrap().position.is_none());
+    }
+
+    #[test]
+    fn a_popup_without_a_position_still_appears() {
+        // Between mapping and the first positioner answer there is a moment with
+        // no position. Dropping the popup then would make a menu flicker.
+        let mut m = model(2);
+        let parent = m.open_toplevel(A, "foot", "Terminal");
+        let popup = m
+            .open_child(parent, SurfaceRole::Popup, Size::new(120, 90), "menu")
+            .unwrap();
+        let placed = m.layout(A, MONITOR, SCREEN, Split::EVEN, Gaps::default());
+        assert!(placed.iter().any(|p| p.window == popup));
     }
 
     #[test]
@@ -640,7 +779,7 @@ mod tests {
         assert_eq!(m.focused(), None);
         assert!(m.tiled(A).is_empty());
         assert!(m
-            .layout(A, MONITOR, Split::EVEN, Gaps::default())
+            .layout(A, MONITOR, SCREEN, Split::EVEN, Gaps::default())
             .is_empty());
     }
 
@@ -656,7 +795,7 @@ mod tests {
         assert_eq!(m.bar(A), &[a]);
         assert_eq!(m.focused(), Some(d));
 
-        let placed = m.layout(A, MONITOR, Split::EVEN, Gaps::default());
+        let placed = m.layout(A, MONITOR, SCREEN, Split::EVEN, Gaps::default());
         let dialog = placed.iter().find(|p| p.window == d).expect("placed");
         assert_eq!(dialog.placement, Placement::Floating);
         assert_eq!(dialog.rect.size, Size::new(600, 400));
@@ -670,7 +809,7 @@ mod tests {
             .open_child(a, SurfaceRole::Popup, Size::new(200, 300), "menu")
             .expect("parent exists");
         assert_eq!(m.focused(), Some(a), "a menu closing must not orphan focus");
-        let placed = m.layout(A, MONITOR, Split::EVEN, Gaps::default());
+        let placed = m.layout(A, MONITOR, SCREEN, Split::EVEN, Gaps::default());
         assert_eq!(
             placed.iter().find(|q| q.window == p).map(|q| q.placement),
             Some(Placement::Floating)
@@ -701,7 +840,7 @@ mod tests {
             .open_child(a, SurfaceRole::Dialog, Size::new(300, 200), "Zapisz jako")
             .unwrap();
         m.open_toplevel(A, "foot", "Terminal"); // pushes a off the tile
-        let placed = m.layout(A, MONITOR, Split::EVEN, Gaps::default());
+        let placed = m.layout(A, MONITOR, SCREEN, Split::EVEN, Gaps::default());
         assert!(placed.iter().all(|p| p.window != d));
     }
 
@@ -713,7 +852,7 @@ mod tests {
         let b = m.open_toplevel(A, "foot", "Terminal");
         m.get_mut(a).unwrap().min_size = Size::new(1200, 900);
 
-        let placed = m.layout(A, PHONE, Split::EVEN, Gaps::default());
+        let placed = m.layout(A, PHONE, PHONE_SCREEN, Split::EVEN, Gaps::default());
         let big = placed.iter().find(|p| p.window == a).expect("still placed");
         assert_eq!(big.placement, Placement::Floating);
         assert!(big.rect.size.w >= 1200, "never squeezed below its minimum");
@@ -721,13 +860,35 @@ mod tests {
     }
 
     #[test]
-    fn a_fullscreen_window_covers_the_application_area() {
+    fn a_fullscreen_window_covers_the_whole_screen_bars_included() {
+        // The one window allowed to cover the bars. A film with a bar across it
+        // is not fullscreen, and every application means the same thing by the
+        // word — so the rule bends here and nowhere else. The way out is
+        // `Super+F`, which belongs to the shell and not to the application.
         let mut m = model(2);
         let a = m.open_toplevel(A, "mpv", "Film");
         m.get_mut(a).unwrap().fullscreen = true;
-        let placed = m.layout(A, MONITOR, Split::EVEN, Gaps::default());
+        let placed = m.layout(A, MONITOR, SCREEN, Split::EVEN, Gaps::default());
         assert_eq!(placed[0].placement, Placement::Floating);
-        assert_eq!(placed[0].rect.size, MONITOR.size);
+        assert_eq!(placed[0].rect, SCREEN);
+        assert!(
+            placed[0].rect.h() > MONITOR.h(),
+            "a fullscreen window that stopped at the application zone would be \
+             letterboxed by the bars"
+        );
+    }
+
+    #[test]
+    fn leaving_fullscreen_puts_the_window_back_in_its_tile() {
+        // The other half of the same rule: the escape has to give the tile back,
+        // not leave a floating window covering everything.
+        let mut m = model(2);
+        let a = m.open_toplevel(A, "mpv", "Film");
+        m.get_mut(a).unwrap().fullscreen = true;
+        m.get_mut(a).unwrap().fullscreen = false;
+        let placed = m.layout(A, MONITOR, SCREEN, Split::EVEN, Gaps::default());
+        assert_eq!(placed[0].placement, Placement::Tiled);
+        assert!(MONITOR.contains(placed[0].rect.origin));
     }
 
     #[test]
@@ -806,7 +967,7 @@ mod tests {
         m.migrate(B, A);
         assert_eq!(m.get(d).map(|w| w.output), Some(A));
         assert!(m
-            .layout(A, MONITOR, Split::EVEN, Gaps::default())
+            .layout(A, MONITOR, SCREEN, Split::EVEN, Gaps::default())
             .iter()
             .any(|p| p.window == d));
     }
@@ -816,7 +977,7 @@ mod tests {
         let mut m = model(2);
         let a = m.open_toplevel(A, "a", "A");
         let b = m.open_toplevel(A, "b", "B");
-        let placed = m.layout(A, MONITOR, Split::EVEN, Gaps { outer: 0, inner: 0 });
+        let placed = m.layout(A, MONITOR, SCREEN, Split::EVEN, Gaps { outer: 0, inner: 0 });
         assert_eq!(placed.len(), 2);
         assert_eq!(placed[0].window, a);
         assert_eq!(placed[0].rect, Rect::new(0, 40, 960, 1000));

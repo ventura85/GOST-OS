@@ -97,11 +97,17 @@ pub fn display_list(view: &ShellView<'_>, theme: &Theme) -> Vec<Primitive> {
     // everything. A window that could cover the bars would cover the only way
     // out of it.
     slider(&mut out, z.apps, view.tabs, p);
-    for slot in view.surfaces {
+    for slot in view.surfaces.iter().filter(|s| !s.over_bars) {
         out.push(Primitive::Surface(*slot));
     }
     top_bar(&mut out, z.top_bar, view, theme);
     bottom_bar(&mut out, z.bottom_bar, view, p);
+    // Last, and only ever a fullscreen window: the one surface entitled to cover
+    // the bars. Keeping it here rather than giving the bars a "hidden" flag means
+    // the exception is a position in one list, not a second state to keep true.
+    for slot in view.surfaces.iter().filter(|s| s.over_bars) {
+        out.push(Primitive::Surface(*slot));
+    }
     out
 }
 
@@ -304,6 +310,8 @@ mod tests {
         let slot = SurfaceSlot {
             id: 0,
             rect: z.apps,
+            src: (0, 0),
+            over_bars: false,
         };
         let view = ShellView {
             zones: z,
@@ -335,6 +343,56 @@ mod tests {
                 "{r:?} is drawn over a window but is not part of a bar"
             );
         }
+    }
+
+    #[test]
+    fn a_fullscreen_window_is_the_one_thing_drawn_over_the_bars() {
+        // The exception to the rule above, and the only one. A film with a bar
+        // across it is not fullscreen — so this surface goes last, after both
+        // bars, and nothing else ever does.
+        let (tabs, windows) = view_fixture();
+        let area = Rect::new(0, 0, 1920, 1080);
+        let z = zones(area, BarHeights::default());
+        let slots = [
+            SurfaceSlot {
+                id: 0,
+                rect: z.apps,
+                src: (0, 0),
+                over_bars: false,
+            },
+            SurfaceSlot {
+                id: 1,
+                rect: area,
+                src: (0, 0),
+                over_bars: true,
+            },
+        ];
+        let view = ShellView {
+            zones: z,
+            tabs: &tabs,
+            windows: &windows,
+            focused_window: Some(0),
+            clock: None,
+            surfaces: &slots,
+        };
+        let list = display_list(&view, &theme_fixture());
+        let full = list
+            .iter()
+            .position(|p| matches!(p, Primitive::Surface(s) if s.id == 1))
+            .expect("the fullscreen window is in the list");
+        assert_eq!(full, list.len() - 1, "nothing may be drawn over fullscreen");
+
+        // And the ordinary window is still under the bars: one surface escaping
+        // must not lift the rest with it.
+        let tiled = list
+            .iter()
+            .position(|p| matches!(p, Primitive::Surface(s) if s.id == 0))
+            .expect("the tiled window is in the list");
+        let bar_fills = list[tiled + 1..full]
+            .iter()
+            .filter(|p| matches!(p, Primitive::Fill(_)))
+            .count();
+        assert!(bar_fills > 0, "the bars still come after a tiled window");
     }
 
     #[test]

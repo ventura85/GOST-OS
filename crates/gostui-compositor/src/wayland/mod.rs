@@ -52,7 +52,9 @@ use smithay::wayland::pointer_constraints::{
     PointerConstraintUserData, PointerConstraintsHandler, PointerConstraintsState,
 };
 use smithay::wayland::relative_pointer::{RelativePointerManagerState, RelativePointerUserData};
-use smithay::wayland::shell::xdg::{ToplevelSurface, XdgShellState};
+use smithay::reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1;
+use smithay::wayland::shell::xdg::decoration::{XdgDecorationManagerGlobalData, XdgDecorationState};
+use smithay::wayland::shell::xdg::{PopupSurface, PositionerState, ToplevelSurface, XdgShellState};
 use smithay::wayland::shm::{ShmHandler, ShmPoolUserData, ShmState};
 
 /// The socket name we ask for, so that the documented development command line
@@ -91,6 +93,18 @@ struct Mapped {
     window: WindowId,
 }
 
+/// The same for a popup: a menu, a tooltip, a combo box drop-down.
+///
+/// Kept in its own list rather than folded into [`Mapped`] because a popup is a
+/// different protocol object with a different lifetime — it appears and vanishes
+/// several times a minute while its parent stays put — and because a popup never
+/// appears on the bottom bar, never takes a tile and never survives its parent.
+#[derive(Debug)]
+struct MappedPopup {
+    popup: PopupSurface,
+    window: WindowId,
+}
+
 /// The protocol side of the compositor: globals, the surface map, and the
 /// output clients are told about.
 #[derive(Debug)]
@@ -119,7 +133,12 @@ pub struct Wayland {
     pub output: Output,
     /// Which output in core's collection the above corresponds to.
     pub output_id: OutputId,
+    /// Server-side decorations. Tiles do not draw their own frames (D-025), so
+    /// a client that offers to draw one is told not to.
+    #[allow(dead_code, reason = "the global lives as long as this value does")]
+    pub decoration: XdgDecorationState,
     toplevels: Vec<Mapped>,
+    popups: Vec<MappedPopup>,
 }
 
 /// The display list's side of the surface map: a slot's opaque id is a
@@ -127,7 +146,7 @@ pub struct Wayland {
 impl crate::render::SurfaceSource for Wayland {
     fn surface(&self, id: u64) -> Option<&WlSurface> {
         let id = u32::try_from(id).ok()?;
-        self.toplevel_of(WindowId(id)).map(|t| t.wl_surface())
+        self.surface_of(WindowId(id))
     }
 }
 
@@ -157,6 +176,8 @@ impl Wayland {
             + Dispatch<ZwpPointerConstraintsV1, ()>
             + Dispatch<ZwpConfinedPointerV1, PointerConstraintUserData<D>>
             + Dispatch<ZwpLockedPointerV1, PointerConstraintUserData<D>>
+            + GlobalDispatch<ZxdgDecorationManagerV1, XdgDecorationManagerGlobalData>
+            + Dispatch<ZxdgDecorationManagerV1, ()>
             + 'static,
     {
         let compositor = CompositorState::new::<D>(display);
@@ -172,6 +193,7 @@ impl Wayland {
         let primary_selection = PrimarySelectionState::new::<D>(display);
         let relative_pointer = RelativePointerManagerState::new::<D>(display);
         let pointer_constraints = PointerConstraintsState::new::<D>(display);
+        let decoration = XdgDecorationState::new::<D>(display);
 
         let output = Output::new(
             name.to_string(),
@@ -196,7 +218,9 @@ impl Wayland {
             pointer_constraints,
             output,
             output_id,
+            decoration,
             toplevels: Vec::new(),
+            popups: Vec::new(),
         };
         wayland.resize_output(size, 1);
         wayland
@@ -226,11 +250,115 @@ impl Wayland {
 
     /// Register a newly mapped toplevel and open the matching window in the
     /// model. Returns the window id so the caller can configure it.
+    ///
+    /// A toplevel that names a parent is a **dialog**, not a second application
+    /// window: "Save as", "Preferences", an alert. It floats over its parent and
+    /// takes no tile (D-025, trap 2) — tiling a file chooser is the single most
+    /// common way a tiling compositor becomes unusable, so the distinction is
+    /// made here, at the only moment the parent is known, rather than guessed
+    /// later from the size or the title.
     pub fn map_toplevel(&mut self, model: &mut WindowModel, toplevel: ToplevelSurface) -> WindowId {
         let (app_id, title) = identity(&toplevel);
-        let window = model.open_toplevel(self.output_id, app_id, title);
+        let parent = toplevel
+            .parent()
+            .and_then(|surface| self.window_of(&surface));
+        let window = match parent {
+            Some(parent) => model
+                .open_child(
+                    parent,
+                    gostui_core::SurfaceRole::Dialog,
+                    // The dialog's own idea of its size. A client that has not
+                    // said yet gets something reasonable to be centred at, and
+                    // corrects it on its first commit.
+                    Size::new(480, 320),
+                    title.clone(),
+                )
+                // A parent that vanished between the request and here: fall back
+                // to an ordinary window rather than dropping the surface, which
+                // would leave the client waiting for a configure forever.
+                .unwrap_or_else(|| model.open_toplevel(self.output_id, app_id.clone(), title)),
+            None => model.open_toplevel(self.output_id, app_id, title),
+        };
         self.toplevels.push(Mapped { toplevel, window });
         window
+    }
+
+    /// Register a popup and place it where its positioner says.
+    ///
+    /// `area` is the zone the popup must stay inside — the application zone, not
+    /// the whole output, because a menu that slid under the top bar would be a
+    /// menu with unreachable entries.
+    ///
+    /// The placement itself is the protocol's, computed by smithay: anchor,
+    /// gravity, and the prescribed order of adjustments when the result does not
+    /// fit (flip, then slide, then resize). We supply the parent's rectangle and
+    /// keep the answer (D-041's reasoning applied to geometry: one stored answer,
+    /// so the picture and the hit test cannot disagree).
+    pub fn map_popup(
+        &mut self,
+        model: &mut WindowModel,
+        popup: PopupSurface,
+        positioner: PositionerState,
+        parent_rect: Option<Rect>,
+    ) -> Option<WindowId> {
+        let parent_surface = popup.get_parent_surface()?;
+        let parent = self.window_of(&parent_surface)?;
+        let geometry = positioner.get_geometry();
+        let size = Size::new(geometry.size.w.max(1), geometry.size.h.max(1));
+        let window = model.open_child(parent, gostui_core::SurfaceRole::Popup, size, "")?;
+        self.popups.push(MappedPopup { popup, window });
+        self.position_popup(model, window, positioner, parent_rect);
+        Some(window)
+    }
+
+    /// Work out where a popup goes and tell both the model and the client.
+    pub fn position_popup(
+        &self,
+        model: &mut WindowModel,
+        window: WindowId,
+        positioner: PositionerState,
+        parent_rect: Option<Rect>,
+    ) {
+        let Some(mapped) = self.popups.iter().find(|p| p.window == window) else {
+            return;
+        };
+        let geometry = match parent_rect {
+            // The area the popup may occupy, expressed relative to its parent —
+            // which is the coordinate space `xdg_positioner` works in.
+            Some(rect) => positioner.get_unconstrained_geometry(smithay::utils::Rectangle::new(
+                (-rect.x(), -rect.y()).into(),
+                (rect.w().max(1), rect.h().max(1)).into(),
+            )),
+            None => positioner.get_geometry(),
+        };
+        mapped.popup.with_pending_state(|state| {
+            state.geometry = geometry;
+            state.positioner = positioner;
+        });
+        model.set_position(
+            window,
+            Rect::new(
+                geometry.loc.x,
+                geometry.loc.y,
+                geometry.size.w.max(1),
+                geometry.size.h.max(1),
+            ),
+        );
+    }
+
+    /// Forget a popup and close its window.
+    pub fn unmap_popup(&mut self, model: &mut WindowModel, surface: &WlSurface) -> Vec<WindowId> {
+        let Some(i) = self
+            .popups
+            .iter()
+            .position(|p| p.popup.wl_surface() == surface)
+        else {
+            return Vec::new();
+        };
+        let gone = model.close(self.popups[i].window);
+        self.popups.retain(|p| !gone.contains(&p.window));
+        self.toplevels.retain(|m| !gone.contains(&m.window));
+        gone
     }
 
     /// Forget a toplevel and close its window. Returns every window the model
@@ -249,20 +377,39 @@ impl Wayland {
         };
         let gone = model.close(self.toplevels[i].window);
         self.toplevels.retain(|m| !gone.contains(&m.window));
+        // A parent takes its dialogs *and* its menus with it: a popup outliving
+        // the window it belongs to is a menu floating over nothing.
+        self.popups.retain(|p| !gone.contains(&p.window));
         gone
     }
 
     pub fn window_of(&self, surface: &WlSurface) -> Option<WindowId> {
-        self.toplevels
+        if let Some(m) = self
+            .toplevels
             .iter()
             .find(|m| m.toplevel.wl_surface() == surface)
-            .map(|m| m.window)
+        {
+            return Some(m.window);
+        }
+        self.popups
+            .iter()
+            .find(|p| p.popup.wl_surface() == surface)
+            .map(|p| p.window)
     }
 
     /// The `wl_surface` a window is drawn from, for the code that routes input
-    /// to it. Same map as [`toplevel_of`](Self::toplevel_of), one step further.
+    /// to it and for the renderer that looks for its pixels.
+    ///
+    /// Popups are searched too: a menu is a surface like any other, and one that
+    /// the renderer could not resolve would be a menu nobody can see.
     pub fn surface_of(&self, window: WindowId) -> Option<&WlSurface> {
-        self.toplevel_of(window).map(|t| t.wl_surface())
+        if let Some(t) = self.toplevel_of(window) {
+            return Some(t.wl_surface());
+        }
+        self.popups
+            .iter()
+            .find(|p| p.window == window)
+            .map(|p| p.popup.wl_surface())
     }
 
     pub fn toplevel_of(&self, window: WindowId) -> Option<&ToplevelSurface> {
@@ -297,8 +444,15 @@ impl Wayland {
     /// re-running this after an unrelated redraw costs no protocol traffic —
     /// which matters, because a configure the client answers is a round trip and
     /// a repaint.
-    pub fn configure(&self, model: &WindowModel, area: Rect, split: Split, gaps: Gaps) {
-        let placed = model.layout(self.output_id, area, split, gaps);
+    pub fn configure(
+        &self,
+        model: &WindowModel,
+        area: Rect,
+        screen: Rect,
+        split: Split,
+        gaps: Gaps,
+    ) {
+        let placed = model.layout(self.output_id, area, screen, split, gaps);
         let focus = model.focused();
         for p in &placed {
             let Some(toplevel) = self.toplevel_of(p.window) else {
@@ -408,6 +562,30 @@ fn identity(toplevel: &ToplevelSurface) -> (String, String) {
             data.app_id.clone().unwrap_or_default(),
             data.title.clone().unwrap_or_else(|| String::from("Okno")),
         )
+    })
+}
+
+/// The window geometry a client declared with `xdg_surface.set_window_geometry`.
+///
+/// **The offset that has to be honoured or nothing lines up.** A client's buffer
+/// is not always its window: one that draws its own decorations puts shadows and
+/// rounded corners outside the geometry, so the buffer starts *above and left of*
+/// the window the user sees. Everything that translates between screen and
+/// surface has to add this back — a picture drawn without it is shifted, and a
+/// click routed without it lands somewhere the user did not click.
+///
+/// `None` when the client has not set one, which means "the whole buffer" and
+/// therefore an offset of zero.
+pub fn window_geometry(surface: &WlSurface) -> Option<Rect> {
+    use smithay::wayland::compositor::with_states;
+    use smithay::wayland::shell::xdg::SurfaceCachedState;
+    with_states(surface, |states| {
+        states
+            .cached_state
+            .get::<SurfaceCachedState>()
+            .current()
+            .geometry
+            .map(|g| Rect::new(g.loc.x, g.loc.y, g.size.w, g.size.h))
     })
 }
 

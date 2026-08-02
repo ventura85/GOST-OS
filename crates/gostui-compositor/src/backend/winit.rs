@@ -484,12 +484,29 @@ impl State {
     /// the wrong window — the exact class of bug this project keeps in core so
     /// that it cannot happen twice.
     pub(crate) fn placed_windows(&self) -> Vec<gostui_core::Placed> {
+        let size = self.window_size();
         self.windows.layout(
             self.output,
             self.zones().apps,
+            Rect::new(0, 0, size.w, size.h),
             self.split,
             self.theme.metrics.gaps(),
         )
+    }
+
+    /// Where a window's own picture starts inside the buffer it committed.
+    ///
+    /// A client that draws its own decorations reports a window geometry inset
+    /// from the buffer, with shadows in between. Everything that maps between
+    /// screen and surface has to agree on this offset — the renderer skips it,
+    /// and the pointer adds it back — or the window is drawn in one place and
+    /// clicked in another.
+    pub(crate) fn buffer_offset(&self, window: gostui_core::WindowId) -> (i32, i32) {
+        self.wayland
+            .surface_of(window)
+            .and_then(crate::wayland::window_geometry)
+            .map(|g| (g.x().max(0), g.y().max(0)))
+            .unwrap_or((0, 0))
     }
 
     /// The logical area windows may use: the screen minus the two bars.
@@ -510,8 +527,14 @@ impl State {
         // monitor, two normally, one when a second would be unusably narrow.
         self.windows
             .set_capacity(self.output, tile_limit(area, gaps));
-        self.wayland
-            .configure(&self.windows, area, self.split, gaps);
+        let size = self.window_size();
+        self.wayland.configure(
+            &self.windows,
+            area,
+            Rect::new(0, 0, size.w, size.h),
+            self.split,
+            gaps,
+        );
         // A narrowing window can push the focused window onto the bottom bar
         // without anybody touching the keyboard, so the keyboard has to be
         // re-aimed here and not only where focus is set.
@@ -602,17 +625,16 @@ impl State {
         let titles = self.wayland.bar_titles(&self.windows);
         let zones = zones(area, self.theme.metrics.bar_heights());
         // Where the windows go — decided by core, back to front (D-025).
-        let placed = self.windows.layout(
-            self.output,
-            zones.apps,
-            self.split,
-            self.theme.metrics.gaps(),
-        );
+        let placed = self.placed_windows();
         let slots: Vec<SurfaceSlot> = placed
             .iter()
             .map(|p| SurfaceSlot {
                 id: p.window.0 as u64,
                 rect: p.rect,
+                src: self.buffer_offset(p.window),
+                // Only a fullscreen window goes over the bars, and the model is
+                // what knows which one that is.
+                over_bars: self.windows.get(p.window).is_some_and(|w| w.fullscreen),
             })
             .collect();
         let view = ShellView {

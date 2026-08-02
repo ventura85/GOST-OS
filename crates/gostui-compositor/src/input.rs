@@ -149,6 +149,35 @@ impl State {
         }
     }
 
+    /// Tell a client that the frame around its window is ours to draw.
+    ///
+    /// Sent on every request rather than once, because a client may ask again at
+    /// any time and the answer never changes (D-025).
+    pub(crate) fn decorate(&mut self, toplevel: &smithay::wayland::shell::xdg::ToplevelSurface) {
+        use smithay::reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode;
+        toplevel.with_pending_state(|state| {
+            state.decoration_mode = Some(Mode::ServerSide);
+        });
+        toplevel.send_pending_configure();
+    }
+
+    /// Where a popup's parent window is on screen, if it is visible.
+    ///
+    /// `None` when the parent holds no tile: a menu belonging to a window
+    /// waiting on the bottom bar has nowhere to be, and placing it against a
+    /// rectangle that is not on screen would put it in a corner of its own.
+    pub(crate) fn parent_rect(
+        &self,
+        popup: &smithay::wayland::shell::xdg::PopupSurface,
+    ) -> Option<gostui_core::Rect> {
+        let parent = popup.get_parent_surface()?;
+        let window = self.wayland.window_of(&parent)?;
+        self.placed_windows()
+            .iter()
+            .find(|p| p.window == window)
+            .map(|p| p.rect)
+    }
+
     /// Carry out a shell action.
     fn run(&mut self, action: Action) {
         tracing::info!(?action, "shell shortcut");
@@ -166,6 +195,21 @@ impl State {
                 if let Some(toplevel) = self.wayland.toplevel_of(window) {
                     toplevel.send_close();
                 }
+            }
+            Action::ToggleFullscreen => {
+                let Some(window) = self.windows.focused() else {
+                    return;
+                };
+                let Some(w) = self.windows.get_mut(window) else {
+                    return;
+                };
+                w.fullscreen = !w.fullscreen;
+                // The shell's own state, flipped here rather than asked of the
+                // client: a window covering both bars must be escapable even
+                // when the application has stopped answering. `sync_layout`
+                // sends the client the new size and the `Fullscreen` flag, and
+                // it is free to redraw accordingly — but it does not get a vote.
+                self.focus_changed();
             }
         }
     }
@@ -198,13 +242,19 @@ impl State {
         let Some(keyboard) = self.seat.get_keyboard() else {
             return;
         };
-        // Only a window that actually holds a tile may take the keyboard. The
-        // one waiting on the bottom bar is not on screen, and typing into
-        // something invisible is worse than typing into nothing.
+        // Only a window that is actually on screen may take the keyboard: the
+        // one waiting on the bottom bar is not, and typing into something
+        // invisible is worse than typing into nothing.
+        //
+        // "On screen" is asked of the layout rather than of the tile list,
+        // because a dialog holds no tile and must still be typed into — a "Save
+        // as" you cannot type a filename into is the whole trap of D-025 in one
+        // window.
+        let placed = self.placed_windows();
         let visible = self
             .windows
             .focused()
-            .filter(|w| self.windows.tiled(self.output).contains(w));
+            .filter(|w| placed.iter().any(|p| p.window == *w));
         let surface = visible.and_then(|w| self.wayland.surface_of(w).cloned());
         if surface == keyboard.current_focus() {
             return;
@@ -231,6 +281,16 @@ impl State {
         }
 
         let focus = self.pointer_focus();
+        // `RUST_LOG=gostui=trace`: says whether the pointer resolved to a client
+        // surface at all. "clicking does nothing" has exactly two causes — the
+        // event never arrived, or it arrived and went nowhere — and this tells
+        // them apart without guessing.
+        tracing::trace!(
+            x = self.pointer_location.x,
+            y = self.pointer_location.y,
+            focus = focus.is_some(),
+            "pointer motion"
+        );
         pointer.motion(
             self,
             focus.clone(),
@@ -280,6 +340,12 @@ impl State {
         let serial = SERIAL_COUNTER.next_serial();
         let state = event.state();
 
+        tracing::trace!(
+            button = event.button_code(),
+            ?state,
+            hit = ?self.hit(self.pointer_point()),
+            "pointer button"
+        );
         if state == ButtonState::Pressed {
             // The press is what moves focus — click to focus, not focus follows
             // the pointer. A window must not change under a cursor crossing it on
@@ -379,27 +445,40 @@ impl State {
         )
     }
 
-    /// The surface under the pointer and the position inside it.
+    /// The surface under the pointer, and **where that surface is on screen**.
+    ///
+    /// The second half is the trap this function exists to name. smithay wants
+    /// the surface's position in global space and subtracts it itself; handing it
+    /// an already-subtracted local position produces `global - local`, which is
+    /// the window's own corner — so every client sees the pointer frozen at its
+    /// top-left corner and no menu, button or drag ever works, while the keyboard
+    /// keeps working perfectly because keys carry no coordinates. Measured and
+    /// fixed 2026-08-02; the symptom is documented because it is unmistakable
+    /// once seen and baffling until then.
     fn pointer_focus(
         &self,
     ) -> Option<(
         smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
         SmithayPoint<f64, Logical>,
     )> {
-        let Hit::Window { window, local: _ } = self.hit(self.pointer_point()) else {
+        let Hit::Window { window, .. } = self.hit(self.pointer_point()) else {
             return None;
         };
-        let placed = self.placed_windows();
-        let rect = placed.iter().find(|p| p.window == window)?.rect;
+        let rect = self
+            .placed_windows()
+            .iter()
+            .find(|p| p.window == window)?
+            .rect;
         let surface = self.wayland.surface_of(window)?.clone();
-        // Computed from the float position rather than from `Hit`'s integer
-        // local coordinate: a client drawing a text cursor wants the fractional
-        // part, and rounding it away here would make selection feel coarse.
-        let local = (
-            self.pointer_location.x - rect.x() as f64,
-            self.pointer_location.y - rect.y() as f64,
-        );
-        Some((surface, local.into()))
+        // The surface's origin, not the window's: the renderer skipped the
+        // client's shadow margin to put the window on the tile, so the buffer
+        // starts that far above and left of what is on screen. Both sides use
+        // the same offset or the picture and the clicks disagree.
+        let skip = self.buffer_offset(window);
+        Some((
+            surface,
+            ((rect.x() - skip.0) as f64, (rect.y() - skip.1) as f64).into(),
+        ))
     }
 
     fn on_touch_down<B: InputBackend>(&mut self, event: B::TouchDownEvent) {
@@ -429,14 +508,18 @@ impl State {
         else {
             return;
         };
-        let local = (location.x - rect.x() as f64, location.y - rect.y() as f64);
+        // Surface position and a global location, like the pointer path — the
+        // subtraction is smithay's to do (see `pointer_focus`).
+        let skip = self.buffer_offset(window);
+        let origin: SmithayPoint<f64, Logical> =
+            ((rect.x() - skip.0) as f64, (rect.y() - skip.1) as f64).into();
         self.touch_focus = Some((surface.clone(), event.slot()));
         touch.down(
             self,
-            Some((surface, local.into())),
+            Some((surface, origin)),
             &DownEvent {
                 slot: event.slot(),
-                location: local.into(),
+                location,
                 serial: SERIAL_COUNTER.next_serial(),
                 time: event.time_msec(),
             },
@@ -468,13 +551,15 @@ impl State {
         else {
             return;
         };
-        let local = (location.x - rect.x() as f64, location.y - rect.y() as f64);
+        let skip = self.buffer_offset(window);
+        let origin: SmithayPoint<f64, Logical> =
+            ((rect.x() - skip.0) as f64, (rect.y() - skip.1) as f64).into();
         touch.motion(
             self,
-            Some((surface, local.into())),
+            Some((surface, origin)),
             &TouchMotionEvent {
                 slot: event.slot(),
-                location: local.into(),
+                location,
                 time: event.time_msec(),
             },
         );

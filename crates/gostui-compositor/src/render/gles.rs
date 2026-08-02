@@ -115,17 +115,22 @@ impl ShellRenderer for Gles {
                     // it means a resize looks like a resize.
                     let dst = to_physical(slot.rect, scale);
                     let size = texture.size();
+                    // Skip whatever the client put outside its window geometry —
+                    // shadows, rounded corners — so the window itself lands on
+                    // the tile instead of the buffer it happens to live in.
+                    let skip = (slot.src.0 * scale, slot.src.1 * scale);
+                    let available = (size.w - skip.0, size.h - skip.1);
                     let visible = Rectangle::new(
                         dst.loc,
-                        Size::from((size.w.min(dst.size.w), size.h.min(dst.size.h))),
+                        Size::from((available.0.min(dst.size.w), available.1.min(dst.size.h))),
                     );
                     if visible.size.w <= 0 || visible.size.h <= 0 {
                         continue;
                     }
-                    let src = Rectangle::from_size(Size::from((
-                        visible.size.w as f64,
-                        visible.size.h as f64,
-                    )));
+                    let src = Rectangle::new(
+                        (skip.0 as f64, skip.1 as f64).into(),
+                        Size::from((visible.size.w as f64, visible.size.h as f64)),
+                    );
                     let damage = [Rectangle::from_size(visible.size)];
                     frame.render_texture_from_to(
                         texture,
