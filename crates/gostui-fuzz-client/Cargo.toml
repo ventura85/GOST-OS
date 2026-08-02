@@ -1,0 +1,22 @@
+[package]
+name = "gostui-fuzz-client"
+description = "A wayland client that sends the compositor requests it must refuse. Verifies that a bad client dies alone."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+publish = false
+
+[[bin]]
+name = "gostui-fuzz"
+path = "src/main.rs"
+
+# The other side of the protocol, and the only crate in the workspace that has
+# it. D-016 keeps `wayland-*` out of the logic; this is not logic — speaking the
+# protocol is the whole job. It lives apart from `gostui-compositor` so that no
+# single crate holds both the client and the server end of the same protocol.
+[dependencies]
+wayland-client = "0.31"
+wayland-protocols = { version = "0.32", features = ["client"] }

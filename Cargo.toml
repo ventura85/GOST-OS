@@ -6,6 +6,7 @@ members = [
     "crates/gostui-desktop-entry",
     "crates/gostui-render",
     "crates/gostui-compositor",
+    "crates/gostui-fuzz-client",
 ]
 
 [workspace.package]

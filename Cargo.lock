@@ -661,6 +661,14 @@ name = "gostui-desktop-entry"
 version = "0.0.1"
 
 [[package]]
+name = "gostui-fuzz-client"
+version = "0.0.1"
+dependencies = [
+ "wayland-client",
+ "wayland-protocols",
+]
+
+[[package]]
 name = "gostui-render"
 version = "0.0.1"
 dependencies = [
