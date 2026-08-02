@@ -14,6 +14,7 @@
 //! - [`geometry`] — sizes and rectangles in logical units (D-011).
 //! - [`output`] — the output collection: scale, rotation, hot-unplug (D-026).
 //! - [`shell`] — the three screen zones the whole interface is built on.
+//! - [`input`] — what a point on screen means and what a shortcut does.
 //! - [`layout`] — tiling, tile limits, and what floats instead (D-025).
 //! - [`window`] — which window holds which tile and which ones wait (D-025).
 //! - [`tab`] — the tab slider that replaces the desktop (D-003).
@@ -25,6 +26,7 @@
 
 pub mod clock;
 pub mod geometry;
+pub mod input;
 pub mod layout;
 pub mod output;
 pub mod shell;
@@ -34,6 +36,7 @@ pub mod window;
 
 pub use clock::{ClockFormat, Wall};
 pub use geometry::{Axis, Point, Rect, Size};
+pub use input::{hit_test, Action, Binding, Hit, Keymap, Keysym, Mods, TopBarItem};
 pub use layout::{Gaps, Placement, Split, SurfaceRole};
 pub use output::{Output, OutputId, Outputs, Transform};
 pub use shell::{zones, BarHeights, Zones, MIN_TOUCH_TARGET};

@@ -579,8 +579,19 @@ To najważniejszy etap w projekcie. Jeśli tu jest dobrze, reszta jest przewidyw
    czekające na dolnym pasku nigdy nie jest proszone o rysowanie. Zmierzone: 2 klatki na 14 s
    z otwartym terminalem, 0 bez powodu. **Zostaje:** `linux-dmabuf` (ścieżka CPU takiego okna
    nie odczyta — pomija je świadomie) i damage tylko uszkodzonych regionów.
-4. **Wejście:** `wl_seat` z `xkbcommon` faktycznie routowane, fokus podąża za kafelkiem,
-   `relative-pointer-v1` + `pointer-constraints-v1` (D-022), `wl_touch` osobną ścieżką.
+4. **Wejście** ✅ **zrobione 2026-08-02.** `wl_seat` routowany naprawdę: klawiatura przez
+   `xkbcommon`, skróty powłoki przechwytywane przed klientem (D-041), wskaźnik z ruchem względnym,
+   `wl_touch` osobną ścieżką. Trafienie w strefę i tablica skrótów są w `gostui-core::input`
+   i mają testy bez kompozytora. Globale `relative-pointer-v1` i `pointer-constraints-v1`
+   są ogłaszane (potwierdzone `wayland-info`); blokada wskaźnika jest aktywowana, zamknięcie
+   w regionie **nie** — patrz D-041. Zmierzone z dwoma terminalami: pisanie trafia do okna
+   z fokusem, klik w drugi kafelek i klik w chip przenoszą fokus, `Super+Q` zamyka okno
+   (`shell shortcut action=CloseWindow` → `toplevel destroyed`).
+   **Trzy rzeczy, których ten krok nie załatwia i trzeba o nich wiedzieć:** `Super+Tab`
+   w trybie zagnieżdżonym przechwytuje `xfwm4` (`switch_window_key`), więc do nas nie dociera —
+   testowalne dopiero na tty albo po zwolnieniu skrótu w XFCE; kursor nadal rysuje sesja
+   gospodarza, nie my; dotyku nie da się na tej stacji uruchomić, więc jego ścieżka jest
+   napisana i nieprzetestowana na sprzęcie.
 5. **Dekoracje i okna nietypowe:** `xdg-decoration` (SSD — kafelki nie rysują własnych ramek),
    popupy przez `xdg_positioner`, dialogi pływające, pełny ekran.
 6. **Domknięcie:** `gtk4-demo` i Qt6, kopiuj-wklej w obie strony, klient-fuzzer.

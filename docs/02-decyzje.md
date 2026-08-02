@@ -976,6 +976,65 @@ panel będzie musiał działać zawsze — i decyzja przestanie obowiązywać sa
 
 ---
 
+## D-041 — Wejście: powłoka bierze jeden modyfikator, klawisze są liczbami w core
+**Status:** ✅ **PRZYJĘTA** (2026-08-02) — realizowana w kroku 4 M2
+
+**Kontekst.** Krok 4 M2 wymagał rozstrzygnięcia trzech rzeczy naraz: **co** powłoka przechwytuje
+z klawiatury, **jak** wejście jest reprezentowane po stronie core (który nie może zależeć
+od bibliotek systemowych), i **kiedy** zmienia się fokus. Wszystkie trzy są nieodwracalne
+w tym sensie, że zmiana każdej z nich później oznacza przepisanie routingu, a nie dopisanie.
+
+**Decyzja — trzy części:**
+
+1. **Powłoka posiada `Super` i nic więcej.** Każdy skrót powłoki niesie `Super`; `Alt+Tab`,
+   gołe klawisze funkcyjne i wszystko pozostałe należy do aplikacji. Modyfikatory dopasowują się
+   **dokładnie**: `Ctrl+Super+Tab` to nie `Super+Tab`, bo dopasowanie „z nadmiarem" oznacza
+   zjadanie kombinacji, których nam nie powierzono, w sposób niewidoczny dla aplikacji.
+   Test tego jest w `gostui-core::input` i sprawdza **regułę**, nie bieżącą listę skrótów.
+
+2. **Klawisze w core są liczbami w numeracji xkb, bez zależności od `libxkbcommon`.**
+   Kompozytor musi mieć xkb — to on zamienia scancode na symbol w układzie użytkownika
+   (polski układ ma pozostać polskim). Core nie może: crate ciągnący bibliotekę C przestaje się
+   budować na kolejnej platformie. Granicą jest `Keysym(u32)`, a numeracja jest **pożyczona**
+   z X11, żeby tłumaczenie po stronie kompozytora było `Keysym(raw.raw())`, a nie tablicą,
+   której nikt nie utrzyma. **Pożyczenie numeracji to nie to samo, co zależność od biblioteki.**
+
+3. **Fokus zmienia klik, nie najechanie.** Okno nie może zmienić się pod kursorem, który tylko
+   przez nie przejeżdża, a na ekranie dotykowym „najechanie" nie istnieje w ogóle — reguła
+   z D-020 („żadna funkcja wyłącznie po najechaniu") dotyczy także fokusu.
+   Fokus podąża za kafelkiem: klawiatura trafia **wyłącznie** do okna, które trzyma kafelek;
+   okno zepchnięte na dolny pasek fokus traci, bo pisanie do czegoś niewidocznego jest gorsze
+   niż pisanie donikąd.
+
+**Co z tego wynika w kodzie.** Trafienie punktu w strefę (`hit_test`) i tablica skrótów (`Keymap`)
+siedzą w `gostui-core::input` i mają testy bez kompozytora (D-016). Geometria chipów dolnego paska
+przeniosła się przy tej okazji do `gostui-core::shell`, bo **klik musi trafiać w chip, który
+został narysowany** — dwie kopie tej arytmetyki to dwie odpowiedzi czekające, aż się rozjadą.
+
+**Ruch wskaźnika nie rysuje klatki.** Obraz powłoki nie zależy od pozycji kursora, więc
+przejechanie myszą przez okno nie przerysowuje niczego; klient dostaje swoje zdarzenia i tyle.
+`request_redraw` na ścieżce ruchu to kilkaset klatek na sekundę i cicha likwidacja wymagania
+z D-027. Dlatego doszedł osobny powód klatki (`input`) — żeby to było widać w pomiarze, a nie
+w domysłach.
+
+**Znane ograniczenia, świadome:**
+- **`Super+Tab` nie działa w trybie zagnieżdżonym**, bo `xfwm4` trzyma go dla `switch_window_key`
+  (tak samo `Super`+strzałki). Klawisz nie dociera do naszego okna — to własność sesji-gospodarza,
+  nie usterka. Na gołym metalu (M4) znika. Zmierzone 2026-08-02.
+- **Kursor nie jest rysowany.** W oknie zagnieżdżonym rysuje go sesja XFCE, a drugi byłby drugim
+  kursorem. Własny kursor wchodzi z M4 (na tty nie ma kto go narysować) i jest warunkiem D-022.
+- **Ograniczenie wskaźnika: blokada tak, zamknięcie w regionie nie.** `lock` jest aktywowany
+  (kursor stoi, klient dostaje ruch względny — tego chce i gra, i wirtualny gładzik z D-022);
+  `confine` nie jest aktywowany, bo przycinania do regionu nie ma, a ograniczenie przyznane
+  i nieegzekwowane jest gorsze niż nieprzyznane.
+- **Dotyk jest osobną ścieżką, ale nieprzetestowaną na sprzęcie** — stacja nie ma ekranu
+  dotykowego, a backend zagnieżdżony na X11 nie wytworzy zdarzenia dotyku. Ścieżka istnieje,
+  bo dorobienie jej później to przepisanie routingu (D-020, D-022), nie jego rozszerzenie.
+
+**Odniesienie:** D-016, D-020, D-022, D-025, D-027
+
+---
+
 ## Stan rozstrzygnięć (2026-08-01)
 
 **Wszystkie decyzje blokujące start są zamknięte.** M0 może ruszyć.
@@ -1008,6 +1067,7 @@ panel będzie musiał działać zawsze — i decyzja przestanie obowiązywać sa
 | D-038 | Budżet pamięci | Mierzymy **pamięć prywatną**, nie RSS: Pixman ≤ 50 MB, GLES2 ≤ 70 MB |
 | D-039 | Cache | Każdy cache ma limit i test; cache bez limitu = wyciek (zmierzone 5,3 MB/dobę) |
 | D-040 | Procesy sesji | Poza kompozytorem nic nie działa stale; XWayland dopiero przy kliencie X11 |
+| D-041 | Wejście | Powłoka bierze wyłącznie `Super`; klawisze w core jako liczby bez xkb; fokus od kliku |
 
 **Rekomendacje przyjmowane domyślnie** (bez sensownej alternatywy, do zakwestionowania w każdej chwili):
 D-006 greeter poza Core, D-007 `Super+←/→`, D-008 karta = siatka skrótów,

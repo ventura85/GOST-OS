@@ -42,10 +42,21 @@ pub enum Cause {
     /// completely different ways — a client that redraws us in a loop is a bug
     /// this count names immediately.
     Client,
+    /// The user did something the shell itself draws: focus moved to another
+    /// tile, a chip on the bottom bar was pressed. Counted apart from `Client`
+    /// because the two answer different questions — this one has an upper bound
+    /// set by how fast a person can press keys, and a count that outruns that is
+    /// a redraw storm.
+    ///
+    /// Pointer *motion* is deliberately not in here: moving the mouse across a
+    /// window changes nothing the shell draws, so it draws nothing. A frame per
+    /// motion event would be several hundred a second and would make the idle
+    /// measurement meaningless.
+    Input,
 }
 
 impl Cause {
-    const COUNT: usize = 5;
+    const COUNT: usize = 6;
 
     pub const ALL: [Cause; Self::COUNT] = [
         Cause::Initial,
@@ -53,6 +64,7 @@ impl Cause {
         Cause::Redraw,
         Cause::Clock,
         Cause::Client,
+        Cause::Input,
     ];
 
     fn index(self) -> usize {
@@ -62,6 +74,7 @@ impl Cause {
             Cause::Redraw => 2,
             Cause::Clock => 3,
             Cause::Client => 4,
+            Cause::Input => 5,
         }
     }
 
@@ -72,6 +85,7 @@ impl Cause {
             Cause::Redraw => "redraw",
             Cause::Clock => "clock",
             Cause::Client => "client",
+            Cause::Input => "input",
         }
     }
 }

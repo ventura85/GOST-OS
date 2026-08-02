@@ -40,6 +40,18 @@ use smithay::wayland::selection::data_device::{DataDeviceHandler, DataDeviceStat
 use smithay::wayland::selection::primary_selection::{
     PrimaryDeviceManagerGlobalData, PrimarySelectionHandler, PrimarySelectionState,
 };
+use smithay::reexports::wayland_protocols::wp::pointer_constraints::zv1::server::{
+    zwp_confined_pointer_v1::ZwpConfinedPointerV1, zwp_locked_pointer_v1::ZwpLockedPointerV1,
+    zwp_pointer_constraints_v1::ZwpPointerConstraintsV1,
+};
+use smithay::reexports::wayland_protocols::wp::relative_pointer::zv1::server::{
+    zwp_relative_pointer_manager_v1::ZwpRelativePointerManagerV1,
+    zwp_relative_pointer_v1::ZwpRelativePointerV1,
+};
+use smithay::wayland::pointer_constraints::{
+    PointerConstraintUserData, PointerConstraintsHandler, PointerConstraintsState,
+};
+use smithay::wayland::relative_pointer::{RelativePointerManagerState, RelativePointerUserData};
 use smithay::wayland::shell::xdg::{ToplevelSurface, XdgShellState};
 use smithay::wayland::shm::{ShmHandler, ShmPoolUserData, ShmState};
 
@@ -91,6 +103,16 @@ pub struct Wayland {
     /// between two clients is an M2 criterion, not a later nicety.
     pub data_device: DataDeviceState,
     pub primary_selection: PrimarySelectionState,
+    /// Relative motion and pointer locking. Core input rather than a nicety for
+    /// games (D-022): the pointer mode that makes a phone usable with desktop
+    /// applications is built out of exactly these two.
+    ///
+    /// Held only to keep the globals alive — clients reach them through the
+    /// seat, and nothing here is called after construction.
+    #[allow(dead_code, reason = "the globals live as long as these values do")]
+    pub relative_pointer: RelativePointerManagerState,
+    #[allow(dead_code, reason = "the globals live as long as these values do")]
+    pub pointer_constraints: PointerConstraintsState,
     /// The `wl_output` global. Clients position menus and pick scale factors
     /// from this, so it exists even in the nested window where "the output" is
     /// somebody else's window.
@@ -127,6 +149,14 @@ impl Wayland {
             + ShmHandler
             + DataDeviceHandler
             + PrimarySelectionHandler
+            + PointerConstraintsHandler
+            + GlobalDispatch<ZwpRelativePointerManagerV1, ()>
+            + Dispatch<ZwpRelativePointerManagerV1, ()>
+            + Dispatch<ZwpRelativePointerV1, RelativePointerUserData<D>>
+            + GlobalDispatch<ZwpPointerConstraintsV1, ()>
+            + Dispatch<ZwpPointerConstraintsV1, ()>
+            + Dispatch<ZwpConfinedPointerV1, PointerConstraintUserData<D>>
+            + Dispatch<ZwpLockedPointerV1, PointerConstraintUserData<D>>
             + 'static,
     {
         let compositor = CompositorState::new::<D>(display);
@@ -140,6 +170,8 @@ impl Wayland {
         // a compositor without a clipboard is not usable, it is a demo.
         let data_device = DataDeviceState::new::<D>(display);
         let primary_selection = PrimarySelectionState::new::<D>(display);
+        let relative_pointer = RelativePointerManagerState::new::<D>(display);
+        let pointer_constraints = PointerConstraintsState::new::<D>(display);
 
         let output = Output::new(
             name.to_string(),
@@ -160,6 +192,8 @@ impl Wayland {
             xdg_shell,
             data_device,
             primary_selection,
+            relative_pointer,
+            pointer_constraints,
             output,
             output_id,
             toplevels: Vec::new(),
@@ -223,6 +257,12 @@ impl Wayland {
             .iter()
             .find(|m| m.toplevel.wl_surface() == surface)
             .map(|m| m.window)
+    }
+
+    /// The `wl_surface` a window is drawn from, for the code that routes input
+    /// to it. Same map as [`toplevel_of`](Self::toplevel_of), one step further.
+    pub fn surface_of(&self, window: WindowId) -> Option<&WlSurface> {
+        self.toplevel_of(window).map(|t| t.wl_surface())
     }
 
     pub fn toplevel_of(&self, window: WindowId) -> Option<&ToplevelSurface> {

@@ -322,6 +322,36 @@ impl WindowModel {
         self.focus
     }
 
+    /// Move focus one step along the bottom bar, wrapping around.
+    ///
+    /// Bar order and not tile order on purpose: the bar holds every toplevel on
+    /// the output, so cycling reaches the windows that are waiting rather than
+    /// bouncing between the two that happen to be visible. A window that was
+    /// waiting is [activated](Self::activate), which is to say it takes the tile
+    /// of the window it replaced — the same swap a click on its chip performs.
+    ///
+    /// Returns the newly focused window, or `None` when the output has none.
+    pub fn cycle_focus(&mut self, output: OutputId, forward: bool) -> Option<WindowId> {
+        let order = self.bar(output);
+        if order.is_empty() {
+            return None;
+        }
+        let len = order.len();
+        let next = match self.focus.and_then(|f| order.iter().position(|w| *w == f)) {
+            // Wrapping is done on `len` rather than by adding `len - 1`, so a
+            // single window cycles to itself instead of underflowing.
+            Some(i) if forward => (i + 1) % len,
+            Some(i) => (i + len - 1) % len,
+            // Nothing focused yet: forward starts at the first window, backward
+            // at the last, which is what makes a bare cycle useful with no focus.
+            None if forward => 0,
+            None => len - 1,
+        };
+        let id = order[next];
+        self.activate(id);
+        Some(id)
+    }
+
     /// Move every window from `from` onto `to`, then re-fill `to`'s tiles.
     ///
     /// This is a monitor being unplugged while windows stand on it (D-026), and
@@ -500,6 +530,49 @@ mod tests {
         assert_eq!(m.tiled(A), &[w]);
         assert_eq!(m.focused(), Some(w));
         assert!(m.waiting(A).is_empty());
+    }
+
+    #[test]
+    fn cycling_focus_walks_the_bar_including_the_windows_waiting_on_it() {
+        // The point of cycling in bar order: with one tile, Super+Tab must still
+        // reach all three windows, pulling each into the tile in turn.
+        let mut m = model(1);
+        let a = m.open_toplevel(A, "foot", "Terminal");
+        let b = m.open_toplevel(A, "firefox", "Firefox");
+        let c = m.open_toplevel(A, "gedit", "Notes");
+        assert_eq!(m.focused(), Some(c));
+
+        assert_eq!(m.cycle_focus(A, true), Some(a));
+        assert_eq!(m.tiled(A), &[a], "a cycled-to window takes the tile");
+        assert_eq!(m.cycle_focus(A, true), Some(b));
+        assert_eq!(m.cycle_focus(A, true), Some(c));
+        assert_eq!(m.cycle_focus(A, false), Some(b), "and back again");
+        assert_eq!(m.bar(A), &[a, b, c], "cycling never reorders the bar");
+    }
+
+    #[test]
+    fn cycling_with_one_window_or_none_is_harmless() {
+        let mut m = model(2);
+        assert_eq!(m.cycle_focus(A, true), None);
+        let a = m.open_toplevel(A, "foot", "Terminal");
+        assert_eq!(m.cycle_focus(A, true), Some(a));
+        assert_eq!(m.cycle_focus(A, false), Some(a));
+        assert_eq!(m.focused(), Some(a));
+    }
+
+    #[test]
+    fn cycling_from_no_focus_starts_at_an_end_not_in_the_middle() {
+        let mut m = model(2);
+        let a = m.open_toplevel(A, "foot", "Terminal");
+        let b = m.open_toplevel(A, "firefox", "Firefox");
+        m.close(a);
+        m.close(b);
+        let c = m.open_toplevel(A, "gedit", "Notes");
+        let d = m.open_toplevel(A, "mc", "Pliki");
+        m.focus = None;
+        assert_eq!(m.cycle_focus(A, true), Some(c));
+        m.focus = None;
+        assert_eq!(m.cycle_focus(A, false), Some(d));
     }
 
     #[test]

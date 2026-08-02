@@ -17,15 +17,19 @@
 use crate::backend::winit::State;
 use crate::wayland::ClientState;
 use smithay::backend::renderer::utils::on_commit_buffer_handler;
-use smithay::input::{SeatHandler, SeatState};
+use smithay::input::pointer::{CursorImageStatus, PointerHandle};
+use smithay::input::{Seat, SeatHandler, SeatState};
 use smithay::reexports::wayland_server::protocol::wl_buffer::WlBuffer;
 use smithay::reexports::wayland_server::protocol::wl_seat::WlSeat;
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::reexports::wayland_server::Client;
-use smithay::utils::Serial;
+use smithay::utils::{Logical, Point, Serial};
 use smithay::wayland::buffer::BufferHandler;
 use smithay::wayland::compositor::{CompositorClientState, CompositorHandler, CompositorState};
 use smithay::wayland::output::OutputHandler;
+use smithay::wayland::pointer_constraints::{
+    with_pointer_constraint, PointerConstraint, PointerConstraintsHandler,
+};
 use smithay::wayland::selection::data_device::{
     ClientDndGrabHandler, DataDeviceHandler, DataDeviceState, ServerDndGrabHandler,
 };
@@ -38,8 +42,9 @@ use smithay::wayland::shell::xdg::{
 };
 use smithay::wayland::shm::{ShmHandler, ShmState};
 use smithay::{
-    delegate_compositor, delegate_data_device, delegate_output, delegate_primary_selection,
-    delegate_seat, delegate_shm, delegate_xdg_shell,
+    delegate_compositor, delegate_data_device, delegate_output, delegate_pointer_constraints,
+    delegate_primary_selection, delegate_relative_pointer, delegate_seat, delegate_shm,
+    delegate_xdg_shell,
 };
 
 impl CompositorHandler for State {
@@ -94,14 +99,13 @@ impl ShmHandler for State {
 
 impl OutputHandler for State {}
 
-/// The seat exists from the moment the socket does, even though nothing routes
-/// input through it yet.
+/// The seat: one keyboard, one pointer, one touch device, three separate focus
+/// types.
 ///
-/// Not premature: `xdg_shell` requires a seat to compile at all — popup grabs
-/// and interactive resize both take one — and a client that finds no `wl_seat`
-/// concludes it has no keyboard and disables text entry entirely. Routing the
-/// events is the next step; the three focus types are already separate because
-/// touch must never be a renamed pointer (D-022).
+/// They stay three types rather than one because touch must never be a renamed
+/// pointer (D-020, D-022) — the pointer mode that makes desktop applications
+/// usable with a finger is a *translation* between two of them, and it can only
+/// be written cleanly if both exist.
 impl SeatHandler for State {
     type KeyboardFocus = WlSurface;
     type PointerFocus = WlSurface;
@@ -109,6 +113,49 @@ impl SeatHandler for State {
 
     fn seat_state(&mut self) -> &mut SeatState<Self> {
         &mut self.seat_state
+    }
+
+    fn cursor_image(&mut self, _seat: &Seat<Self>, _image: CursorImageStatus) {
+        // The client is telling us what the cursor should look like over its
+        // window. In the nested backend the cursor on screen belongs to the host
+        // session and we cannot change it, so this is dropped rather than
+        // half-honoured. It becomes real on the tty (M4), where nobody else is
+        // drawing a cursor, and it is a requirement of the pointer mode (D-022).
+    }
+}
+
+/// Pointer locking and confinement.
+///
+/// A client asks for these; the compositor decides. We grant a **lock** — the
+/// cursor stands still and the client is told the movement instead, which is
+/// what a game and the virtual trackpad of D-022 both want — and refuse
+/// **confinement**, because clamping the pointer to a client-supplied region is
+/// not implemented and a constraint that is activated but not enforced is worse
+/// than one that was never granted.
+impl PointerConstraintsHandler for State {
+    fn new_constraint(&mut self, surface: &WlSurface, pointer: &PointerHandle<Self>) {
+        // Only for the surface the pointer is actually on: granting a lock to a
+        // window the user is not pointing at would let a background application
+        // capture the cursor.
+        if pointer.current_focus().as_ref() != Some(surface) {
+            return;
+        }
+        with_pointer_constraint(surface, pointer, |constraint| {
+            let Some(constraint) = constraint else { return };
+            if matches!(&*constraint, PointerConstraint::Locked(_)) {
+                constraint.activate();
+            }
+        });
+    }
+
+    fn cursor_position_hint(
+        &mut self,
+        _surface: &WlSurface,
+        _pointer: &PointerHandle<Self>,
+        _location: Point<f64, Logical>,
+    ) {
+        // Where the client would like the cursor to reappear when the lock ends.
+        // Acting on it means moving a cursor we do not draw yet (M4).
     }
 }
 
@@ -261,3 +308,5 @@ delegate_output!(State);
 delegate_seat!(State);
 delegate_data_device!(State);
 delegate_primary_selection!(State);
+delegate_relative_pointer!(State);
+delegate_pointer_constraints!(State);
