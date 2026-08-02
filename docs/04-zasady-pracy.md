@@ -12,22 +12,28 @@ istniejącego DE. Trzy strefy ekranu: górny pasek (system), środek (slider kar
 dolny pasek (przełącznik okien). Docelowo także własny menedżer plików, menedżer usług i panel
 sterowania.
 
-**Stan: M0 i M1 zamknięte, M2 kroki 1–3 zrobione (2026-08-01).** Istnieją i są
+**Stan: M0 i M1 zamknięte, M2 kroki 1–4 zrobione (2026-08-02).** Istnieją i są
 przetestowane: `gostui-core` (geometria, wyjścia, **strefy ekranu**, kafelkowanie, **model okien**,
-karty, **motyw** — kolory, rozmiary i czcionki jako dane, D-032),
+**wejście** — trafienie w strefę i tablica skrótów, D-041, karty, **motyw** — kolory, rozmiary
+i czcionki jako dane, D-032),
 `gostui-config` (TOML + zapis atomowy), `gostui-desktop-entry` (parser `.desktop` + kody pól
 `Exec`), `gostui-render` (rasteryzer software'owy + **tekst przez `cosmic-text`** + zapis PNG),
 `gostui-compositor` (backend `winit` na smithayu 0.7 + dwa renderery za wspólnym traitem
-+ **gniazdo wayland z `xdg-shell`**). Wszystko poza tym w dokumentacji to nadal plan, nie stan
-repozytorium.
++ **gniazdo wayland z `xdg-shell`** + **routing wejścia**). Wszystko poza tym w dokumentacji
+to nadal plan, nie stan repozytorium.
 
-**Klienci działają i widać ich okna — ale nic do nich nie wpisujesz.** `foot` startuje, dostaje
-kafelek, rysuje się na obu ścieżkach renderera i kafelkuje się z drugim oknem. **Wejście (krok 4
-M2) nie jest jeszcze routowane:** `wl_seat` istnieje, bo bez niego klient uznaje, że nie ma
-klawiatury, ale żadne zdarzenie przez niego nie przechodzi. Zostaje też `linux-dmabuf` —
-ścieżka CPU takiego bufora nie odczyta i **świadomie pomija** takie okno zamiast rysować je źle.
+**Klienci działają, widać ich okna i można w nich pracować.** `foot` startuje, dostaje kafelek,
+rysuje się na obu ścieżkach renderera, kafelkuje się z drugim oknem, przyjmuje pisanie i oddaje
+fokus na klik albo na skrót. Zmierzone 2026-08-02: `Super+Q` zamyka okno z fokusem, klik w drugi
+kafelek i klik w chip na dolnym pasku przenoszą fokus.
+**Trzy rzeczy, o których trzeba wiedzieć, zanim się je zgłosi jako usterkę:** `Super+Tab`
+w trybie zagnieżdżonym przechwytuje `xfwm4` (`switch_window_key`) i do nas nie dociera; **kursor
+rysuje sesja gospodarza, nie my** (własny wchodzi z M4 — na tty nie ma kto go narysować);
+**dotyk ma osobną ścieżkę, ale nieprzetestowaną** — ta stacja nie ma czym jej uruchomić.
+Zostaje też `linux-dmabuf` — ścieżka CPU takiego bufora nie odczyta i **świadomie pomija**
+takie okno zamiast rysować je źle.
 
-`cargo test --workspace` — 185 testów, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
+`cargo test --workspace` — 202 testy, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
 `cargo run -p gostui-compositor -- --png ui.png` — rysuje interfejs do dwóch PNG-ów
 (monitor i telefon) z tego samego stanu, z zegarem w górnym pasku.
 `cargo run -p gostui-compositor -- --backend winit [--renderer gles2|pixman] [--frames n]` —
@@ -50,16 +56,24 @@ zegara**, a tekst ma własne testy layoutu i cache'u. Nie „naprawiaj" tej ró�
 jednej ścieżki do drugiej — jest udokumentowana i ograniczona.
 
 **Zero renderowania w spoczynku jest zmierzone, nie deklarowane.** `GOSTUI_STATS=1` daje linię
-na każdą klatkę z **powodem** (`initial`/`resized`/`redraw`/`clock`/`client`) i raport przy
+na każdą klatkę z **powodem** (`initial`/`resized`/`redraw`/`clock`/`client`/`input`) i raport przy
 zamknięciu; `--idle-test <s>` zamienia kryterium w kod wyjścia. Zmierzone 2026-08-01:
 **0 klatek bez powodu** na obu ścieżkach, także z otwartym terminalem (2 klatki na 14 s, obie
 od klienta); renderowanie zajmuje 0,2–0,3% czasu pracy procesu. Szczegóły i trzy pułapki
 tego pomiaru: `docs/01-strategia-dev-test.md` §3.5. **Instrumentacja sama nie może się budzić** —
 dlatego wypis jest per klatka, a nie co sekundę, jak mówił pierwotny plan.
 
-**Następny krok: M2 krok 4** — wejście: `wl_seat` z `xkbcommon` faktycznie routowane, fokus
-podąża za kafelkiem, `relative-pointer-v1` + `pointer-constraints-v1` (D-022), `wl_touch` osobną
-ścieżką. Kroki M2 z kryteriami: `docs/01-strategia-dev-test.md` §4, sekcja M2.
+**Następny krok: M2 krok 5** — dekoracje i okna nietypowe: `xdg-decoration` (SSD — kafelki nie
+rysują własnych ramek), popupy przez `xdg_positioner`, dialogi pływające, pełny ekran.
+Kroki M2 z kryteriami: `docs/01-strategia-dev-test.md` §4, sekcja M2.
+
+**Wejście ma dwie granice, tak jak rysowanie.** Co znaczy punkt na ekranie (`hit_test`) i co robi
+kombinacja klawiszy (`Keymap`) siedzi w `gostui-core::input` i ma testy bez kompozytora;
+`crates/gostui-compositor/src/input.rs` tylko przenosi odpowiedzi do protokołu. Powłoka posiada
+**wyłącznie `Super`**, modyfikatory dopasowują się dokładnie, a klawisze przechodzą do core jako
+`Keysym(u32)` w numeracji xkb — bez zależności core od `libxkbcommon` (D-041). **Ruch wskaźnika
+nie rysuje klatki** — obraz powłoki nie zależy od pozycji kursora, a `request_redraw` na tej
+ścieżce to kilkaset klatek na sekundę i koniec z wymaganiem z D-027.
 
 **Okno klienta jest wariantem listy wyświetlania, nie drugim przebiegiem rysowania.**
 `Primitive::Surface` niesie **nieprzezroczysty identyfikator** i prostokąt; pikseli szuka

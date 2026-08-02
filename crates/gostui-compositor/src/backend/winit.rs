@@ -74,7 +74,7 @@ pub(crate) struct State {
     /// from the first day: a session with a phone panel and a monitor is the
     /// target, not an extension (D-026).
     outputs: Outputs,
-    output: OutputId,
+    pub(crate) output: OutputId,
     /// Where the divider between two tiles sits. Draggable in a later step;
     /// stored per session already so that dragging it has somewhere to write.
     split: Split,
@@ -82,14 +82,24 @@ pub(crate) struct State {
     pub(crate) wayland: Wayland,
     /// The seat. It lives here rather than in `Wayland` because smithay's seat
     /// types are parameterised by the type that handles input — which is this
-    /// one. Nothing is routed through it yet; it exists because a client that
-    /// finds no `wl_seat` decides it has no keyboard.
+    /// one.
     pub(crate) seat_state: SeatState<State>,
-    #[allow(
-        dead_code,
-        reason = "the handle is used when input lands, in the next step"
-    )]
-    seat: Seat<State>,
+    pub(crate) seat: Seat<State>,
+    /// The shell's key bindings (D-041). Data, not code: the shortcut table is
+    /// core's, and this is only where the running compositor keeps its copy.
+    pub(crate) keymap: gostui_core::Keymap,
+    /// Where the pointer is, in logical units on this output.
+    ///
+    /// The compositor's own idea of the position rather than the device's,
+    /// because the two come apart the moment a client locks the pointer: the
+    /// device keeps moving and this does not (D-022).
+    pub(crate) pointer_location: smithay::utils::Point<f64, smithay::utils::Logical>,
+    /// The surface a finger went down on, and which slot it was.
+    ///
+    /// A touch point belongs to the surface it started on until it is lifted,
+    /// even if it slides off — a finger dragging a scrollbar off the edge of a
+    /// window must keep dragging that scrollbar.
+    pub(crate) touch_focus: Option<crate::input::TouchGrab>,
     /// Something changed and the screen no longer matches the state.
     ///
     /// Handlers set this instead of drawing: a client can commit several times
@@ -125,14 +135,17 @@ pub(crate) struct State {
 
 /// Where the frame counters stood when `--idle-test` started measuring.
 ///
-/// All three numbers are needed, not just the total: a measurement window longer
-/// than a minute contains a clock frame, and one with a client connected
-/// contains client frames. Both are the system working, not a fault.
+/// All four numbers are needed, not just the total: a measurement window longer
+/// than a minute contains a clock frame, one with a client connected contains
+/// client frames, and one where somebody pressed a key contains an input frame.
+/// All three are the system working, not a fault — and a run where the tester
+/// moved the mouse should still pass, because moving the mouse draws nothing.
 #[derive(Debug)]
 struct IdleWatch {
     frames: u64,
     clock_frames: u64,
     client_frames: u64,
+    input_frames: u64,
 }
 
 /// Open the window and run until it is closed.
@@ -190,6 +203,11 @@ pub fn run(
         tracing::error!("nie udało się utworzyć klawiatury (xkb): {e}");
     }
     seat.add_pointer();
+    // Touch is its own device on the seat, not a mode of the pointer (D-020).
+    // The nested backend on X11 will never produce a touch event; the path
+    // exists because adding it later would mean unpicking the routing rather
+    // than extending it, and because the phone is a target, not a maybe.
+    seat.add_touch();
 
     let mut state = State {
         backend,
@@ -204,6 +222,9 @@ pub fn run(
         wayland,
         seat_state,
         seat,
+        keymap: gostui_core::Keymap::default(),
+        pointer_location: (0.0, 0.0).into(),
+        touch_focus: None,
         dirty: false,
         text: TextRenderer::new(),
         clock: now,
@@ -374,10 +395,12 @@ pub fn run(
         let drawn = state.stats.frames() - watch.frames;
         let from_clock = state.stats.count(Cause::Clock) - watch.clock_frames;
         let from_clients = state.stats.count(Cause::Client) - watch.client_frames;
-        let unexplained = drawn - from_clock - from_clients;
+        let from_input = state.stats.count(Cause::Input) - watch.input_frames;
+        let unexplained = drawn - from_clock - from_clients - from_input;
         eprintln!(
             "test spoczynku: okno pomiarowe {:.1} s · klatek: {drawn} \
-             (od zegara: {from_clock}, od klientów: {from_clients}, bez powodu: {unexplained})",
+             (od zegara: {from_clock}, od klientów: {from_clients}, \
+             od użytkownika: {from_input}, bez powodu: {unexplained})",
             window.as_secs_f64()
         );
         if unexplained > 0 {
@@ -402,6 +425,7 @@ impl State {
             frames: self.stats.frames(),
             clock_frames: self.stats.count(Cause::Clock),
             client_frames: self.stats.count(Cause::Client),
+            input_frames: self.stats.count(Cause::Input),
         });
         tracing::info!(
             frames_so_far = self.stats.frames(),
@@ -434,11 +458,43 @@ impl State {
         self.dirty = true;
     }
 
+    /// The nested window's size in logical units.
+    ///
+    /// Scale is 1 here on purpose (see `try_draw`), so logical and physical are
+    /// the same number — but the callers that route input say "logical" and mean
+    /// it, and this is where that stops being a coincidence when scale changes.
+    pub(crate) fn window_size(&self) -> Size {
+        let size = self.backend.window_size();
+        Size::new(size.w, size.h)
+    }
+
+    /// The three screen zones, as both the renderer and the hit test see them.
+    pub(crate) fn zones(&self) -> gostui_core::Zones {
+        let size = self.window_size();
+        zones(
+            Rect::new(0, 0, size.w, size.h),
+            self.theme.metrics.bar_heights(),
+        )
+    }
+
+    /// Where this output's windows are, back to front.
+    ///
+    /// Recomputed rather than cached: it is a handful of rectangles from a Vec,
+    /// and a cached layout that drifts from the one drawn is a click landing on
+    /// the wrong window — the exact class of bug this project keeps in core so
+    /// that it cannot happen twice.
+    pub(crate) fn placed_windows(&self) -> Vec<gostui_core::Placed> {
+        self.windows.layout(
+            self.output,
+            self.zones().apps,
+            self.split,
+            self.theme.metrics.gaps(),
+        )
+    }
+
     /// The logical area windows may use: the screen minus the two bars.
     fn app_zone(&self) -> Rect {
-        let size = self.backend.window_size();
-        let area = Rect::new(0, 0, size.w, size.h);
-        zones(area, self.theme.metrics.bar_heights()).apps
+        self.zones().apps
     }
 
     /// Recompute how many tiles fit, then tell every client its size.
@@ -456,6 +512,10 @@ impl State {
             .set_capacity(self.output, tile_limit(area, gaps));
         self.wayland
             .configure(&self.windows, area, self.split, gaps);
+        // A narrowing window can push the focused window onto the bottom bar
+        // without anybody touching the keyboard, so the keyboard has to be
+        // re-aimed here and not only where focus is set.
+        self.refresh_keyboard_focus();
     }
 
     fn handle(&mut self, event: WinitEvent) {
@@ -478,8 +538,13 @@ impl State {
                 tracing::info!("window closed by the user");
                 self.signal.stop();
             }
-            // Input arrives in M2, together with `wl_seat` and xkbcommon.
-            WinitEvent::Input(_) | WinitEvent::Focus(_) => {}
+            WinitEvent::Input(event) => self.on_input(event),
+            // The host session taking its own focus away. Our clients keep
+            // theirs: a window that was focused inside GostUI is still the one
+            // that gets the keyboard when the user comes back, and telling
+            // clients otherwise would make every alt-tab in XFCE look like a
+            // focus change in here.
+            WinitEvent::Focus(_) => {}
         }
     }
 
@@ -488,7 +553,7 @@ impl State {
     /// A failed frame is logged and dropped, never propagated as a panic: on a
     /// nested backend a lost EGL context means the parent session took the GPU
     /// away, and the right answer is to survive until the next event.
-    fn draw(&mut self, cause: Cause) {
+    pub(crate) fn draw(&mut self, cause: Cause) {
         let began = Instant::now();
         if let Err(e) = self.try_draw() {
             // A dropped frame is not counted: the statistics describe frames

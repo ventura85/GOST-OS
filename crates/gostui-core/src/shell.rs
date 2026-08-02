@@ -130,6 +130,42 @@ const MENU_W: i32 = 132;
 const CLOCK_W: i32 = 160;
 const STATUS_W: i32 = 116;
 
+/// One window's chip on the bottom bar.
+const CHIP_W: i32 = 180;
+const CHIP_H: i32 = 32;
+const CHIP_GAP: i32 = 8;
+
+/// Place the bottom bar's window chips, left to right.
+///
+/// The returned vector is **shorter than `count`** when the bar runs out of room.
+/// That is a real limitation and not a rounding detail: a window whose chip did
+/// not fit cannot be reached by pointer or finger at all. It is left this way on
+/// purpose for now — the alternatives (scrolling the bar, shrinking chips below
+/// a touch target, grouping by application) are decisions the specification has
+/// not made, and quietly picking one here would be picking it for good.
+///
+/// This lives in core rather than in the painter for the same reason
+/// [`top_bar_layout`] does: a click has to land on the chip that was drawn, and
+/// two copies of the arithmetic are two answers waiting to disagree (D-016).
+pub fn bottom_bar_layout(bar: Rect, count: usize) -> Vec<Rect> {
+    if bar.w() <= 0 || bar.h() <= 0 {
+        return Vec::new();
+    }
+    let h = CHIP_H.min(bar.h());
+    let y = bar.y() + (bar.h() - h) / 2;
+    let mut out = Vec::new();
+    let mut x = bar.x() + BAR_MARGIN;
+    for _ in 0..count {
+        let chip = Rect::new(x, y, CHIP_W, h);
+        if chip.right() > bar.right() - BAR_MARGIN {
+            break;
+        }
+        out.push(chip);
+        x += CHIP_W + CHIP_GAP;
+    }
+    out
+}
+
 /// Place the top bar's elements, dropping what does not fit.
 ///
 /// Order of sacrifice, least useful first: search (reachable by keyboard and
@@ -294,6 +330,40 @@ mod tests {
         assert!(top_bar_layout(Rect::new(0, 0, 10, 48)).placed().is_empty());
         // 100 units fits a shrunken menu and nothing else.
         assert_eq!(top_bar_layout(Rect::new(0, 0, 100, 48)).placed().len(), 1);
+    }
+
+    #[test]
+    fn window_chips_sit_inside_the_bottom_bar_and_never_overlap() {
+        let bar = Rect::new(0, 1032, 1920, 48);
+        let chips = bottom_bar_layout(bar, 4);
+        assert_eq!(chips.len(), 4);
+        for pair in chips.windows(2) {
+            assert!(pair[0].right() < pair[1].x());
+        }
+        for c in &chips {
+            assert!(c.y() >= bar.y() && c.bottom() <= bar.bottom());
+            assert!(c.right() <= bar.right());
+        }
+    }
+
+    #[test]
+    fn a_bar_too_narrow_for_every_chip_drops_the_ones_that_do_not_fit() {
+        // The phone case, and the reason the caller must not assume it got back
+        // as many rectangles as it asked for.
+        let bar = Rect::new(0, 0, 360, MIN_TOUCH_TARGET);
+        let chips = bottom_bar_layout(bar, 6);
+        assert!(chips.len() < 6);
+        for c in &chips {
+            assert!(c.right() <= bar.right() - 12);
+        }
+    }
+
+    #[test]
+    fn chips_of_a_degenerate_bar_are_empty_rather_than_negative() {
+        assert!(bottom_bar_layout(Rect::new(0, 0, 0, 0), 3).is_empty());
+        for c in bottom_bar_layout(Rect::new(0, 0, 1920, 4), 3) {
+            assert!(c.h() > 0 && c.h() <= 4);
+        }
     }
 
     #[test]

@@ -13,6 +13,8 @@
 mod backend;
 mod clock;
 #[cfg(feature = "winit")]
+mod input;
+#[cfg(feature = "winit")]
 mod render;
 #[cfg(feature = "winit")]
 mod stats;

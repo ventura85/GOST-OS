@@ -56,7 +56,6 @@ pub struct ShellView<'a> {
 // strip and a tile board. Wiring them to the theme now would be work spent on a
 // picture that is going away. When the D-031 board is built it reads
 // `Metrics::tile_unit` and `tile_gap`, and these disappear rather than moving.
-const CHIP_H: i32 = 32;
 const CARD_W: i32 = 260;
 const CARD_GAP: i32 = 24;
 const TILE: i32 = 56;
@@ -149,10 +148,6 @@ fn push_outline(out: &mut Vec<Primitive>, rect: Rect, t: i32, colour: Rgba) {
     );
 }
 
-fn centred_chip(bar: Rect, x: i32, w: i32) -> Rect {
-    Rect::new(x, bar.y() + (bar.h() - CHIP_H) / 2, w, CHIP_H)
-}
-
 fn top_bar(out: &mut Vec<Primitive>, bar: Rect, view: &ShellView<'_>, t: &Theme) {
     let p = &t.palette;
     push(out, bar, p.bar);
@@ -239,12 +234,13 @@ fn bottom_bar(out: &mut Vec<Primitive>, bar: Rect, view: &ShellView<'_>, p: &Pal
     push(out, bar, p.bar);
     push(out, Rect::new(bar.x(), bar.y(), bar.w(), 1), p.bar_edge);
 
-    let mut x = bar.x() + 12;
-    for (i, _w) in view.windows.iter().enumerate() {
-        let chip = centred_chip(bar, x, 180);
-        if chip.right() > bar.right() - 12 {
-            break;
-        }
+    // Chip positions come from core, like the top bar's do, and for a reason
+    // that only shows up with input: a click has to land on the chip that was
+    // drawn (`gostui_core::input::hit_test` reads this same function).
+    for (i, chip) in gostui_core::shell::bottom_bar_layout(bar, view.windows.len())
+        .into_iter()
+        .enumerate()
+    {
         push(out, chip, p.chip);
         if view.focused_window == Some(i) {
             // The focused window gets the second brand colour, so focus is
@@ -255,7 +251,6 @@ fn bottom_bar(out: &mut Vec<Primitive>, bar: Rect, view: &ShellView<'_>, p: &Pal
                 p.accent_alt,
             );
         }
-        x += 188;
     }
 }
 
