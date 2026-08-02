@@ -193,9 +193,19 @@ fn top_bar(out: &mut Vec<Primitive>, bar: Rect, view: &ShellView<'_>, t: &Theme)
     // narrow bar is layout arithmetic, and layout arithmetic is testable logic
     // (D-016). The renderer only fills the rectangles it is handed.
     let l = gostui_core::shell::top_bar_layout(bar);
-    // The Start Menu is accented because it is the anchor of the bar.
+    // The Start Menu is accented because it is the anchor of the bar, and it
+    // carries the one mark in the shell that has to be recognised rather than
+    // read: four squares. Drawn as four fills of the bar colour punched out of
+    // the accented button, so the icon costs four rectangles and no texture —
+    // which is the whole argument of D-044, that the look and the display list
+    // want the same thing.
     if let Some(r) = l.menu {
         push(out, r, p.accent);
+        if let Some(squares) = gostui_core::shell::menu_icon(r) {
+            for s in squares {
+                push(out, s, p.bar);
+            }
+        }
     }
     for r in [l.search, l.clock, l.status].into_iter().flatten() {
         push(out, r, p.chip);
