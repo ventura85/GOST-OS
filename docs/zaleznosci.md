@@ -34,8 +34,20 @@ Stan na tej stacji (2026-07-30): **wszystkie zainstalowane.**
 | `weston` | klienty testowe `weston-simple-shm` / `weston-simple-egl` + implementacja referencyjna |
 | `wayland-utils` | `wayland-info` — pierwsze narzędzie przy „aplikacja się nie uruchamia" |
 | `foot` | minimalny terminal wayland-native, podstawowy klient testowy |
+| `mousepad` (lub inny klient GTK) | sprawdzenie toolkitu, który **nie** implementuje `xdg-decoration` |
+| `xautomation` (`xte`) | wysyłanie zdarzeń wskaźnika do zagnieżdżonego okna przy diagnostyce |
 
 Stan na tej stacji: **wszystkie zainstalowane.**
+
+**Brakuje do jednego kryterium M2:**
+
+| Pakiet | Po co | Stan |
+|---|---|---|
+| `xdg-desktop-portal` + `xdg-desktop-portal-gtk` | GTK3 kieruje **okno wyboru pliku** przez portal; bez niego „Otwórz…" nie tworzy żadnego okna i kryterium „okno wyboru pliku pływa, nie kafelkuje" (D-025, pułapka 2) nie ma jak zostać sprawdzone | **brak** |
+
+```bash
+sudo apt install xdg-desktop-portal xdg-desktop-portal-gtk
+```
 
 ## Narzędzia deweloperskie (cargo)
 
