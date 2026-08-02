@@ -1035,6 +1035,62 @@ w domysłach.
 
 ---
 
+## D-042 — Pełny ekran zakrywa paski, a wyjście z niego należy do powłoki
+**Status:** ✅ **PRZYJĘTA** (2026-08-02) — realizowana w kroku 5 M2
+
+**Kontekst.** Reguła z D-025 mówi, że okno nigdy nie zakrywa pasków, bo dolny pasek jest jedyną
+drogą do pozostałych okien. Pełny ekran jest jedynym przypadkiem, w którym ta reguła szkodzi:
+film z paskiem w poprzek nie jest pełnym ekranem, a gra dostaje obcięty obraz. Każda aplikacja
+rozumie przez „pełny ekran" to samo i zgłosi naszą interpretację jako błąd.
+
+**Decyzja:** okno pełnoekranowe dostaje **całe wyjście, razem z oboma paskami**, i jest jedyną
+powierzchnią rysowaną nad nimi. W liście wyświetlania jest to **pozycja na końcu listy**, a nie
+drugi stan („paski ukryte") do utrzymywania w prawdzie — wyjątek jest jednym miejscem w jednej
+liście i ma test.
+
+**Warunek, bez którego decyzja nie obowiązuje:** wyjście z pełnego ekranu jest **skrótem powłoki**
+(`Super+F`), nie żądaniem do klienta. Okno zakrywające oba paski nie może uwięzić użytkownika,
+gdy aplikacja przestanie odpowiadać — a przy dotyku bez klawiatury nie ma alternatywnej drogi
+ucieczki (D-020). Powłoka przełącza swój własny stan, klient dostaje `configure` i flagę
+`Fullscreen`, i może się do niej dostosować — ale nie ma głosu.
+
+**Odniesienie:** D-020, D-025, D-041
+
+---
+
+## D-043 — Kafelki nie mają pasków tytułu; tożsamość okna żyje na dolnym pasku
+**Status:** ✅ **PRZYJĘTA** (2026-08-02) — realizowana w kroku 5 M2
+
+**Kontekst.** Kompozytor ogłasza `xdg-decoration` i mówi każdemu klientowi `ServerSide` (D-025:
+kafelek nie rysuje własnej ramki), co znaczy, że dekoracja jest **naszą** decyzją projektową.
+Pytanie brzmiało, co narysować.
+
+**Decyzja:** **nic poza ramką fokusu.** Żadnego paska tytułu, żadnego przycisku zamknięcia
+na oknie.
+
+**Dlaczego to nie jest oszczędzanie na robocie:**
+- Pasek tytułu służy głównie do **chwytania okna**, a okien się tu nie przesuwa i nie skaluje
+  krawędzią (D-025). Zostałby paskiem do patrzenia, kosztem wysokości każdego kafelka —
+  na telefonie kosztem znaczącym.
+- To, do czego pasek służy poza chwytaniem — nazwa okna i droga powrotna do niego — **już
+  istnieje na dolnym pasku**, który jest celem dotykowym (≥ 48 px) i nie powiela się per okno.
+- Zamykanie ma `Super+Q` i zamknięcie z poziomu aplikacji; osobny „krzyżyk" na każdym kafelku
+  to trzeci sposób na to samo i najmniejszy cel na ekranie.
+
+**Ramka rysowana jest wewnątrz prostokąta okna, nie w odstępie między kafelkami.** Odstęp jest
+ustawieniem motywu i może wynosić zero, a ramka fokusu znikająca przy `inner_gap = 0` jest ramką,
+na której nie można polegać. Kosztem są dwa zewnętrzne piksele obrazu klienta. Okno pełnoekranowe
+ramki nie dostaje (D-042).
+
+**Czego to nie naprawia:** **GTK nie implementuje `xdg-decoration`** i rysuje własny nagłówek
+niezależnie od tego, co powiemy. Sprawdzone 2026-08-02: `GTK_CSD=0` niczego nie zmienia.
+Qt i klienci honorujący protokół (np. `foot`) wyglądają tak, jak zaprojektowano. Polityka
+per aplikacja — jeśli w ogóle — jest tematem na M3, nie kłótnią z toolkitem.
+
+**Odniesienie:** D-020, D-025, D-032, D-042
+
+---
+
 ## Stan rozstrzygnięć (2026-08-01)
 
 **Wszystkie decyzje blokujące start są zamknięte.** M0 może ruszyć.
@@ -1068,6 +1124,8 @@ w domysłach.
 | D-039 | Cache | Każdy cache ma limit i test; cache bez limitu = wyciek (zmierzone 5,3 MB/dobę) |
 | D-040 | Procesy sesji | Poza kompozytorem nic nie działa stale; XWayland dopiero przy kliencie X11 |
 | D-041 | Wejście | Powłoka bierze wyłącznie `Super`; klawisze w core jako liczby bez xkb; fokus od kliku |
+| D-042 | Pełny ekran | Zakrywa oba paski; wyjście `Super+F` należy do powłoki, nie do klienta |
+| D-043 | Dekoracje | Bez pasków tytułu; sama ramka fokusu, tożsamość okna na dolnym pasku |
 
 **Rekomendacje przyjmowane domyślnie** (bez sensownej alternatywy, do zakwestionowania w każdej chwili):
 D-006 greeter poza Core, D-007 `Super+←/→`, D-008 karta = siatka skrótów,

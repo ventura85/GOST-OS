@@ -592,8 +592,29 @@ To najważniejszy etap w projekcie. Jeśli tu jest dobrze, reszta jest przewidyw
    testowalne dopiero na tty albo po zwolnieniu skrótu w XFCE; kursor nadal rysuje sesja
    gospodarza, nie my; dotyku nie da się na tej stacji uruchomić, więc jego ścieżka jest
    napisana i nieprzetestowana na sprzęcie.
-5. **Dekoracje i okna nietypowe:** `xdg-decoration` (SSD — kafelki nie rysują własnych ramek),
-   popupy przez `xdg_positioner`, dialogi pływające, pełny ekran.
+5. **Dekoracje i okna nietypowe** ⚠️ **zrobione 2026-08-02, jedno kryterium niesprawdzone.**
+   `xdg-decoration` ogłaszane, każdy klient dostaje `ServerSide`; dekoracją jest **sama ramka
+   fokusu** (D-043). Popupy pozycjonowane przez `xdg_positioner` — rozwiązywanie ograniczeń jest
+   smithaya (flip → slide → resize), model przechowuje wynik. Toplevel z rodzicem to dialog:
+   pływa, nie bierze kafelka. Pełny ekran zakrywa oba paski, wyjściem jest `Super+F` (D-042).
+
+   **Ten krok zaczął się od usterki, która psuła wszystko pozycyjne od kroku 4.** W smithayu para
+   „fokus" niesie pozycję powierzchni w układzie globalnym i biblioteka sama ją odejmuje;
+   przekazywaliśmy już odjętą pozycję lokalną, więc klient dostawał `globalna − lokalna`, czyli
+   swój własny róg, zamrożony. Menu się nie otwierały, przyciski nie reagowały, przeciąganie nie
+   działało — a pisanie działało bez zarzutu, bo klawisze nie niosą współrzędnych. **Wniosek na
+   przyszłość: „klawiatura działa, mysz nie" prawie nigdy nie znaczy „mysz nie dochodzi", tylko
+   „dochodzi z fałszywą pozycją".**
+
+   Zweryfikowane na ekranie: menu „Plik" w Mousepadzie (GTK) i menu podręczne w `weston-terminal`
+   otwierają się, są rysowane i znikają; okna wyrównują się do kafelka co do piksela po odjęciu
+   marginesu cienia z geometrii klienta.
+
+   **Niesprawdzone: okno wyboru pliku jako pływające.** GTK3 kieruje je przez
+   `xdg-desktop-portal`, którego na tej stacji nie ma (patrz §1, lista brakujących pakietów).
+   Ścieżka dialogów istnieje i jest w modelu, ale kryterium M2 „okno wyboru pliku w GTK i Qt
+   otwiera się jako pływające" pozostaje otwarte do czasu instalacji portalu albo testu klientem
+   Qt.
 6. **Domknięcie:** `gtk4-demo` i Qt6, kopiuj-wklej w obie strony, klient-fuzzer.
 
 ### M3 — Slider kart i Menu Start (serce produktu)
