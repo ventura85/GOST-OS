@@ -12,15 +12,16 @@ istniejącego DE. Trzy strefy ekranu: górny pasek (system), środek (slider kar
 dolny pasek (przełącznik okien). Docelowo także własny menedżer plików, menedżer usług i panel
 sterowania.
 
-**Stan: M0 i M1 zamknięte, M2 kroki 1–5 zrobione (2026-08-02).** Istnieją i są
+**Stan: M0, M1 i M2 zamknięte (2026-08-02).** Istnieją i są
 przetestowane: `gostui-core` (geometria, wyjścia, **strefy ekranu**, kafelkowanie, **model okien**,
 **wejście** — trafienie w strefę i tablica skrótów, D-041, karty, **motyw** — kolory, rozmiary
 i czcionki jako dane, D-032),
 `gostui-config` (TOML + zapis atomowy), `gostui-desktop-entry` (parser `.desktop` + kody pól
 `Exec`), `gostui-render` (rasteryzer software'owy + **tekst przez `cosmic-text`** + zapis PNG),
 `gostui-compositor` (backend `winit` na smithayu 0.7 + dwa renderery za wspólnym traitem
-+ **gniazdo wayland z `xdg-shell`** + **routing wejścia**). Wszystko poza tym w dokumentacji
-to nadal plan, nie stan repozytorium.
++ **gniazdo wayland z `xdg-shell`** + **routing wejścia** + **schowek**),
+`gostui-fuzz-client` (klient wysyłający żądania, których kompozytor ma odmówić — D-045).
+Wszystko poza tym w dokumentacji to nadal plan, nie stan repozytorium.
 
 **Klienci działają, widać ich okna i można w nich pracować.** `foot` startuje, dostaje kafelek,
 rysuje się na obu ścieżkach renderera, kafelkuje się z drugim oknem, przyjmuje pisanie i oddaje
@@ -31,9 +32,17 @@ w trybie zagnieżdżonym przechwytuje `xfwm4` (`switch_window_key`) i do nas nie
 rysuje sesja gospodarza, nie my** (własny wchodzi z M4 — na tty nie ma kto go narysować);
 **dotyk ma osobną ścieżkę, ale nieprzetestowaną** — ta stacja nie ma czym jej uruchomić.
 Zostaje też `linux-dmabuf` — ścieżka CPU takiego bufora nie odczyta i **świadomie pomija**
-takie okno zamiast rysować je źle.
+takie okno zamiast rysować je źle. GTK4 4.14 spada wtedy na `wl_shm` i rysuje się normalnie
+(zmierzone), ale klient wymagający dmabuf bezwzględnie nie ma ścieżki.
 
-`cargo test --workspace` — 210 testów, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
+**`gtk4-demo`, Qt6 i kopiuj-wklej działają, a odporność jest mierzona, nie deklarowana.**
+`cargo run -p gostui-fuzz-client` wysyła 17 rodzajów żądań, których kompozytor ma odmówić,
+i sprawdza po każdym, czy **świeże połączenie** nadal działa; `scripts/test-schowek.sh` mierzy
+schowek i primary w obie strony. Uruchamiaj oba przy zmianach w routingu wejścia i w handlerach
+protokołu — **każde z tych narzędzi znalazło usterkę w kodzie uznanym za gotowy**, w tym panikę
+kończącą sesję, osiągalną z dowolnego klienta (D-045).
+
+`cargo test --workspace` — 213 testów, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
 `cargo run -p gostui-compositor -- --png ui.png` — rysuje interfejs do dwóch PNG-ów
 (monitor i telefon) z tego samego stanu, z zegarem w górnym pasku.
 `cargo run -p gostui-compositor -- --backend winit [--renderer gles2|pixman] [--frames n]` —
@@ -63,8 +72,13 @@ od klienta); renderowanie zajmuje 0,2–0,3% czasu pracy procesu. Szczegóły i 
 tego pomiaru: `docs/01-strategia-dev-test.md` §3.5. **Instrumentacja sama nie może się budzić** —
 dlatego wypis jest per klatka, a nie co sekundę, jak mówił pierwotny plan.
 
-**Następny krok: M2 krok 6** — domknięcie: `gtk4-demo` i Qt6, kopiuj-wklej w obie strony,
-klient-fuzzer. Kroki M2 z kryteriami: `docs/01-strategia-dev-test.md` §4, sekcja M2.
+**Następny krok: M3** — slider kart i Menu Start, czyli serce produktu. Kryteria:
+`docs/01-strategia-dev-test.md` §4, sekcja M3.
+
+**Trzy rzeczy zostały świadomie niezrobione i nie są zapomniane:** `linux-dmabuf` nie jest
+ogłaszany w ogóle, damage obejmuje całe okno zamiast uszkodzonych regionów (D-027), a budżet
+pamięci z D-038 nadal nie ma testu psującego build. Każda z nich jest osobną pracą, żadna nie
+blokuje M3.
 
 **Kierunek wizualny jest nazwany, nie domyślny (D-044):** płaskie prostokąty, ostre krawędzie,
 widoczne granice stref, gęstość informacji ponad przestronność — Final Cartridge III i stary

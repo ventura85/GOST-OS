@@ -610,12 +610,45 @@ To najważniejszy etap w projekcie. Jeśli tu jest dobrze, reszta jest przewidyw
    otwierają się, są rysowane i znikają; okna wyrównują się do kafelka co do piksela po odjęciu
    marginesu cienia z geometrii klienta.
 
-   **Niesprawdzone: okno wyboru pliku jako pływające.** GTK3 kieruje je przez
-   `xdg-desktop-portal`, którego na tej stacji nie ma (patrz §1, lista brakujących pakietów).
-   Ścieżka dialogów istnieje i jest w modelu, ale kryterium M2 „okno wyboru pliku w GTK i Qt
-   otwiera się jako pływające" pozostaje otwarte do czasu instalacji portalu albo testu klientem
-   Qt.
-6. **Domknięcie:** `gtk4-demo` i Qt6, kopiuj-wklej w obie strony, klient-fuzzer.
+   **Niesprawdzone było: okno wyboru pliku jako pływające** — domknięte w kroku 6, i okazało się
+   usterką, nie brakiem pakietu.
+6. **Domknięcie** ✅ **zrobione 2026-08-02.** `gtk4-demo`, Qt6, kopiuj-wklej, klient-fuzzer.
+   **Krok znalazł trzy usterki, z których dwie były w kodzie uznanym za gotowy od kroków 2 i 5** —
+   i to jest główny wynik tego kroku, ważniejszy od samych odhaczonych kryteriów.
+
+   **Klient-fuzzer** (`crates/gostui-fuzz-client`, D-045): 17 scenariuszy, **kompozytor żyje po
+   każdym, na obu ścieżkach renderera**, kod wyjścia 0. Siedem scenariuszy idzie surowymi bajtami,
+   bo są niewyrażalne przez typowane API klienta; dziesięć używa biblioteki poprawnie, żeby dojść
+   tam, gdzie kompozytor **wierzy liczbom** klienta. Uruchomienie: `WAYLAND_DISPLAY=wayland-gostui
+   cargo run -p gostui-fuzz-client`, `--list` pokazuje scenariusze.
+
+   **Znalazł panikę osiągalną z każdego klienta:** `set_window_geometry(0, 0, -1, -1)` →
+   `Size::new` w smithayu → koniec kompozytora i wszystkich aplikacji użytkownika. Naprawione
+   filtrem przed smithayem (D-045 wyjaśnia, dlaczego nie `catch_unwind`).
+
+   **Kopiuj-wklej działał w jedną stronę i to wyglądało jak brak danych.** `set_data_device_focus`
+   i `set_primary_focus` nie były wołane **nigdzie w repozytorium**, więc smithay nie miał komu
+   wydać selekcji: `wl-copy` ustawiał schowek, `wl-paste` dostawał `wl_keyboard.enter` i czekał
+   w nieskończoność na `wl_data_device.selection`. Pusty wklej wygląda dokładnie jak pusty
+   schowek — dlatego to przeżyło od kroku 2. Test: `scripts/test-schowek.sh`, pięć rund
+   (schowek w obie strony, primary w obie strony, przejęcie schowka przez trzeciego klienta),
+   **5/5**.
+
+   **Okno wyboru pliku było kafelkowane — pułapka 2 z D-025 wprost.** Nie z braku kodu: rola była
+   ustalana w `new_toplevel`, a `xdg_toplevel.set_parent` przychodzi **po** `get_toplevel`, więc
+   każdy dialog rodził się bezrodzicielski. Rodzic dołączył do rzeczy odczytywanych na commicie,
+   obok tytułu i `min_size`. Zweryfikowane na ekranie: okno „Wybierz plik" pływa wyśrodkowane nad
+   rodzicem, rodzic trzyma cały kafelek, na dolnym pasku **jeden** chip.
+
+   **`gtk4-demo` i Qt6 rysują się na obu ścieżkach.** Największe przewidywane ryzyko —
+   `linux-dmabuf`, którego kompozytor **nie ogłasza w ogóle** — nie zmaterializowało się: GTK4
+   4.14 spada na `wl_shm` (widać po `libEGL warning: failed to get driver name`) i nie ma ani
+   jednego błędu importu bufora. Qt6 nie rysuje własnego nagłówka, więc dostaje samą ramkę fokusu
+   (D-043); GTK4 rysuje swój, zgodnie z tym, co D-043 już zapowiadał.
+
+   **Czego ten krok nie załatwia:** `linux-dmabuf` nadal nie jest ogłaszany — klient, który go
+   wymaga bezwzględnie, nie ma ścieżki. Nadal brakuje też damage tylko uszkodzonych regionów
+   (D-027) i testu budżetu pamięci psującego build (D-038).
 
 ### M3 — Slider kart i Menu Start (serce produktu)
 Slider: nawigacja `Super+←/→` + gołe strzałki przy fokusie slidera + klik, snap bez animacji,
