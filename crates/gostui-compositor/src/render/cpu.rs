@@ -93,10 +93,19 @@ fn blend_client(canvas: &mut Canvas, slot: &SurfaceSlot, surface: &WlSurface, sc
         // which looks exactly like a compositor that failed to draw anything.
         let opaque = !matches!(data.format, Format::Argb8888);
 
-        let mut row = vec![0u8; w * 4];
-        for y in 0..h {
+        // The client's own decorations live outside its window geometry, so the
+        // window starts this far into the buffer (see `SurfaceSlot::src`).
+        let skip_x = (slot.src.0.max(0) as usize).min(w);
+        let skip_y = (slot.src.1.max(0) as usize).min(h);
+        let visible_w = w - skip_x;
+        if visible_w == 0 {
+            return;
+        }
+
+        let mut row = vec![0u8; visible_w * 4];
+        for y in skip_y..h {
             let line = offset + y * stride;
-            for x in 0..w {
+            for x in skip_x..w {
                 let s = line + x * 4;
                 // wl_shm's ARGB8888 is a little-endian 32-bit word, so in memory
                 // it reads B, G, R, A — and it is **premultiplied**. The
@@ -106,7 +115,7 @@ fn blend_client(canvas: &mut Canvas, slot: &SurfaceSlot, surface: &WlSurface, sc
                 // GPU side, in the other direction).
                 let (b, g, r) = (pool[s], pool[s + 1], pool[s + 2]);
                 let a = if opaque { 255 } else { pool[s + 3] };
-                let d = x * 4;
+                let d = (x - skip_x) * 4;
                 match a {
                     0 => row[d..d + 4].copy_from_slice(&[0, 0, 0, 0]),
                     255 => row[d..d + 4].copy_from_slice(&[r, g, b, 255]),
@@ -118,10 +127,10 @@ fn blend_client(canvas: &mut Canvas, slot: &SurfaceSlot, surface: &WlSurface, sc
                 }
             }
             canvas.blend_rgba(
-                (origin.0, origin.1 + y as i32),
-                w as u32,
+                (origin.0, origin.1 + (y - skip_y) as i32),
+                visible_w as u32,
                 1,
-                w * 4,
+                visible_w * 4,
                 &row,
                 clip,
             );

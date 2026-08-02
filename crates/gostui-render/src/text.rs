@@ -78,6 +78,22 @@ pub struct SurfaceSlot {
     pub id: u64,
     /// Where the window goes, in logical units.
     pub rect: Rect,
+    /// Where the window starts **inside the client's buffer**.
+    ///
+    /// Not always zero, and assuming it is costs exactly one visible bug: a
+    /// client that draws its own decorations puts shadows and rounded corners
+    /// outside its declared window geometry, so its buffer begins above and left
+    /// of the window a person sees. Drawing from the buffer's corner then leaves
+    /// a band of shadow inside the tile and pushes the window off by that much.
+    /// Everything to the left of and above this point is skipped.
+    pub src: (i32, i32),
+    /// Drawn **over** the two bars instead of under them.
+    ///
+    /// True for exactly one thing: a fullscreen window. Everywhere else the bars
+    /// are on top, because a window that could cover them would cover the only
+    /// way out of itself. Fullscreen is the deliberate exception, and it carries
+    /// its own way out (`Super+F`).
+    pub over_bars: bool,
 }
 
 /// One item of a display list before fonts are involved.
@@ -611,6 +627,8 @@ mod tests {
         let slot = SurfaceSlot {
             id: 7,
             rect: Rect::new(1, 2, 3, 4),
+            src: (0, 0),
+            over_bars: false,
         };
         let list = vec![
             Primitive::Fill(Fill {

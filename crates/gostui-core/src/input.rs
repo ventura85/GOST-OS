@@ -97,6 +97,8 @@ impl Keysym {
     /// Lower-case `q`. xkb reports the symbol *after* the layout has been
     /// applied, so on a Polish layout this is still the key marked Q.
     pub const Q: Self = Self(0x071);
+    /// Lower-case `f`.
+    pub const F: Self = Self(0x066);
 }
 
 /// Something the shell does in answer to a key combination.
@@ -113,6 +115,12 @@ pub enum Action {
     /// Ask the focused window to close. The client may refuse — that is its
     /// right, and "ask" is the whole of the protocol's vocabulary here.
     CloseWindow,
+    /// Put the focused window in or out of fullscreen.
+    ///
+    /// The shell's own, not a request forwarded to the client, and that is the
+    /// point: a fullscreen window is the only one allowed to cover both bars, so
+    /// the way out of it must not depend on the application still answering.
+    ToggleFullscreen,
 }
 
 /// A key with its modifiers.
@@ -158,6 +166,10 @@ impl Default for Keymap {
             Action::FocusPreviousWindow,
         );
         map.bind(Binding::new(Keysym::Q, Mods::LOGO), Action::CloseWindow);
+        map.bind(
+            Binding::new(Keysym::F, Mods::LOGO),
+            Action::ToggleFullscreen,
+        );
         map
     }
 }
@@ -280,11 +292,10 @@ mod tests {
     use crate::window::WindowModel;
     use crate::OutputId;
 
+    const MONITOR: Rect = Rect::new(0, 0, 1920, 1080);
+
     fn monitor() -> Zones {
-        zones(
-            Rect::from_size(Size::new(1920, 1080)),
-            BarHeights::default(),
-        )
+        zones(MONITOR, BarHeights::default())
     }
 
     /// Two tiled windows on one output, laid out exactly as the compositor lays
@@ -296,7 +307,13 @@ mod tests {
         model.set_capacity(output, 2);
         model.open_toplevel(output, "foot", "terminal");
         model.open_toplevel(output, "gedit", "notes");
-        let placed = model.layout(output, monitor().apps, Split::EVEN, Gaps::default());
+        let placed = model.layout(
+            output,
+            monitor().apps,
+            MONITOR,
+            Split::EVEN,
+            Gaps::default(),
+        );
         (model, output, placed)
     }
 
@@ -388,7 +405,13 @@ mod tests {
                 "Zapisz jako",
             )
             .expect("dialog opens on an existing parent");
-        let placed = model.layout(output, monitor().apps, Split::EVEN, Gaps::default());
+        let placed = model.layout(
+            output,
+            monitor().apps,
+            MONITOR,
+            Split::EVEN,
+            Gaps::default(),
+        );
         let d = placed
             .iter()
             .find(|p| p.window == dialog)
@@ -453,7 +476,7 @@ mod tests {
             map.action(Keysym::TAB, Mods::LOGO),
             Some(Action::CloseWindow)
         );
-        assert_eq!(map.iter().count(), 3, "a rebind must not grow the map");
+        assert_eq!(map.iter().count(), 4, "a rebind must not grow the map");
     }
 
     #[test]
