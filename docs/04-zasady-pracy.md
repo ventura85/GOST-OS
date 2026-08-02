@@ -42,7 +42,21 @@ schowek i primary w obie strony. Uruchamiaj oba przy zmianach w routingu wejści
 protokołu — **każde z tych narzędzi znalazło usterkę w kodzie uznanym za gotowy**, w tym panikę
 kończącą sesję, osiągalną z dowolnego klienta (D-045).
 
-`cargo test --workspace` — 213 testów, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
+**Wygląd powłoki jest pilnowany obrazem, nie czyimś okiem (warunek D-010).**
+`crates/gostui-render/tests/golden/*.png` to cztery sceny rysowane ścieżką CPU i porównywane
+co do piksela; zwykłe `cargo test` je uruchamia. **Żadna nie zawiera tekstu** — zegar jest
+jedynym tekstem powłoki, więc `clock: None` usuwa wszystkie glify, i dlatego te pliki wychodzą
+identycznie na tej stacji i w CI (sprawdzone). Zmieniłeś wygląd celowo:
+
+```bash
+GOSTUI_BLESS=1 cargo test -p gostui-render --test golden   # przepisuje wzorce
+```
+
+Przebieg z błogosławieństwem **celowo kończy się błędem**, żeby nie dało się go pomylić
+z zielonym, a przy niezgodności test zapisuje `*.actual.png` obok wzorca. **Obejrzyj oba, zanim
+pobłogosławisz** — to jedyna komenda w tym repozytorium, która zamienia regresję w fakt.
+
+`cargo test --workspace` — 218 testów, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
 `cargo run -p gostui-compositor -- --png ui.png` — rysuje interfejs do dwóch PNG-ów
 (monitor i telefon) z tego samego stanu, z zegarem w górnym pasku.
 `cargo run -p gostui-compositor -- --backend winit [--renderer gles2|pixman] [--frames n]` —
@@ -72,13 +86,47 @@ od klienta); renderowanie zajmuje 0,2–0,3% czasu pracy procesu. Szczegóły i 
 tego pomiaru: `docs/01-strategia-dev-test.md` §3.5. **Instrumentacja sama nie może się budzić** —
 dlatego wypis jest per klatka, a nie co sekundę, jak mówił pierwotny plan.
 
-**Następny krok: M3** — slider kart i Menu Start, czyli serce produktu. Kryteria:
-`docs/01-strategia-dev-test.md` §4, sekcja M3.
+**M3 jest zaczęte od brzegów: ikona Menu Start (cztery kwadraty, D-044) i złote obrazy.**
+Właściwy slider kart nie ruszył i **nie powinien ruszyć bez rozmowy** — patrz akapit niżej.
+
+### Zanim napiszesz slider kart: jedno pytanie do człowieka, nie do rejestru
+
+Slider składa się z decyzji, które rejestr trzyma w dwóch różnych stanach — i różnica jest
+praktyczna, nie formalna:
+
+| Decyzja | O czym | Stan |
+|---|---|---|
+| **D-031** | pasek nazw kart + tablica kafli zamiast ramy karty i skrawków | **przeczytać przed kodem**; jest **odstępstwem od `gostos.md` §B** |
+| D-030 | orientacja pozioma domyślna na telefonie | przeczytać przed kodem |
+| D-033 | kafel żywy | przeczytać przed kodem |
+| D-007 | `Super+←/→` globalnie, gołe strzałki tylko przy fokusie slidera | rekomendacja przyjmowana domyślnie |
+| D-008 | karta = siatka skrótów, nie osadzone widoki aplikacji | rekomendacja przyjmowana domyślnie |
+| D-009 | karta przypięta: najwyżej jedna, rezerwuje przestrzeń | rekomendacja przyjmowana domyślnie |
+
+Trzy dolne można realizować, zaznaczając jawnie, że bierze się rekomendację z rejestru — na tym
+polega „przyjmowana domyślnie". **Rozmowy wymaga D-031**, i to z jednego powodu: `gostos.md` §B
+wymaga skrawków sąsiednich kart, a D-031 zastępuje je paskiem nazw. Argument jest mocny i oparty
+na pomiarze (skrawek 28 jednostek ciemnego tła na ciemnym tle jest praktycznie niewidoczny) oraz
+na konflikcie gestów z D-030 — ale **specyfikacja jest źródłem prawdy i nie zmienia się bez
+wyraźnej prośby użytkownika**. Więc albo pada zgoda i `gostos.md` zostaje poprawiony, albo slider
+powstaje ze skrawkami. Tego nie rozstrzyga rejestr.
+
+**Praktyczna konsekwencja dla kodu:** obecne rysowanie środkowej strefy (`paint.rs`, `slider`)
+to **stary układ pływających kart**, który D-031 usuwa — jego rozmiary są tam świadomie
+zostawione jako stałe, z komentarzem wyjaśniającym dlaczego nie trafiły do motywu. Nie rozwijaj
+go, dopóki D-031 nie jest rozstrzygnięta; złote obrazy utrwalają jego dzisiejszy wygląd, więc
+zmiana odezwie się w CI i to jest zamierzone.
 
 **Trzy rzeczy zostały świadomie niezrobione i nie są zapomniane:** `linux-dmabuf` nie jest
 ogłaszany w ogóle, damage obejmuje całe okno zamiast uszkodzonych regionów (D-027), a budżet
 pamięci z D-038 nadal nie ma testu psującego build. Każda z nich jest osobną pracą, żadna nie
 blokuje M3.
+
+**Jedna rzecz do rozstrzygnięcia przy okazji, mała:** komentarz przy `top_bar_layout` obiecywał
+kolejność poświęcania elementów paska (najpierw wyszukiwanie, potem zegar), której kod nie
+realizuje — zegar wypada wcześniej, bo chce 160 jednostek na środku. Komentarz opisuje już
+rzeczywistość, ale **czy rzeczywistość jest tą pożądaną, nikt nie zdecydował**; jeśli ranking ma
+obowiązywać, trzeba go wymusić testem, nie zdaniem.
 
 **Kierunek wizualny jest nazwany, nie domyślny (D-044):** płaskie prostokąty, ostre krawędzie,
 widoczne granice stref, gęstość informacji ponad przestronność — Final Cartridge III i stary

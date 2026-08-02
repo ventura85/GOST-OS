@@ -663,6 +663,37 @@ dopasowanie po `Name`+`Comment`+`Keywords`, Enter uruchamia. Motyw ikon + SVG + 
 plików XFCE w `menu_start/` pojawia się w menu bez restartu; uruchomienie aplikacji z menu działa
 (w tym `Terminal=true`); restart kompozytora odtwarza układ kart 1:1; zmiana karty < 16 ms.
 
+**Stan M3 (2026-08-02): zaczęte od brzegów, sedno zablokowane decyzjami.**
+
+Zrobione:
+
+1. **Ikona Menu Start** — cztery kwadraty w siatce 2×2, rysowane czterema wypełnieniami koloru
+   paska wyciętymi z akcentowanego przycisku. Bez tekstury i bez glifu, więc obie ścieżki
+   renderera dają ten sam obraz; geometria (`shell::menu_icon`) siedzi w core razem
+   z `top_bar_layout`, bo to arytmetyka (D-016). Przycisk zwężony do kwadratu 48×48 — jest przez
+   to dokładnie celem dotykowym (D-020) i zwalnia 84 jednostki paska.
+2. **Złote obrazy** — `crates/gostui-render/tests/golden/`, cztery sceny porównywane co do
+   piksela przez zwykłe `cargo test`. **To był niedotrzymany warunek D-010**, nie nowy pomysł:
+   tamta decyzja wybrała „CPU do tekstury" zamiast drugiego backendu pod warunkiem, że ścieżka
+   CPU zostanie pokryta testami obrazu, a §3.2 tego dokumentu opisuje je od początku.
+   Że warunku nie dotrzymano, było widać od razu — ikona z punktu 1 zmieniła wygląd powłoki
+   i **żaden test tego nie zauważył**. Obsługa: `GOSTUI_BLESS=1`, szczegóły w `docs/04`.
+
+   Sceny **nie zawierają tekstu** (zegar to jedyny tekst powłoki, więc `clock: None` usuwa
+   glify) i dzięki temu wychodzą identycznie tutaj i na maszynie CI — sprawdzone, nie założone.
+   Koszt: `check` w CI wydłużył się z ~57 s do ~1 min 36 s.
+
+**Czego nie zaczynać bez rozmowy:** samego slidera — a dokładnie jednej rzeczy w nim. **D-031
+jest odstępstwem od `gostos.md` §B**: zastępuje skrawki sąsiednich kart paskiem nazw. Specyfikacji
+nie zmienia się bez wyraźnej prośby użytkownika, więc to pytanie do człowieka, nie do rejestru.
+D-030 i D-033 też należy przeczytać przed kodem; D-007, D-008 i D-009 mają rekomendacje
+przyjmowane domyślnie i wystarczy jawnie zaznaczyć, że się je bierze. Tabela:
+`docs/04-zasady-pracy.md`.
+
+Uwaga praktyczna: obecne rysowanie środkowej strefy to **stary układ pływających kart**, który
+D-031 usuwa. Złote obrazy utrwalają jego dzisiejszy wygląd — gdy D-031 wejdzie, zaprotestują,
+i to jest zamierzone.
+
 ### M4 — Goły metal
 Backend `udev`/DRM/KMS + `libinput` + `seatd`, przełączanie VT, obsługa uśpienia/wybudzenia.
 Plik sesji, uruchamianie z usługi systemd użytkownika z `Restart=on-failure`.

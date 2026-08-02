@@ -455,8 +455,8 @@ zakaz marnowania cykli. Jedna praca zaspokaja wszystkie trzy.
 **Odniesienie:** `01-strategia-dev-test.md` §3.7
 
 ## D-028 — smithay 0.7 z minimalnym zestawem cech (i co z tego wynika dla Pixmana)
-**Status:** ✅ **PRZYJĘTA** w części „wersja i cechy" (2026-07-31) · ⚠️ **OTWARTA** w części
-„jak podać Pixmana zagnieżdżonego" — patrz niżej.
+**Status:** ✅ **PRZYJĘTA** w części „wersja i cechy" (2026-07-31) · ✅ **PRZYJĘTA** w części
+„jak podać Pixmana zagnieżdżonego" (2026-08-02) — **warunek spełniony**, patrz dopisek na końcu.
 
 **Decyzja:** `smithay = { version = "0.7.0", default-features = false, features = ["backend_winit"] }`,
 wyłącznie w `gostui-compositor` (D-016).
@@ -508,6 +508,28 @@ z EGL-em, zanim narysowaliśmy cokolwiek własnego. Budżet 80 MB z D-017/D-027 
 **Zależność transitywna do odnotowania:** smithay ciągnie `cgmath` (RUSTSEC-2026-0196,
 *unmaintained*, bez wersji naprawionej). Wpisane do `deny.toml` z uzasadnieniem — to notka
 o utrzymaniu, nie podatność, a crate liczy macierze i nie dotyka danych klienta.
+
+**Warunek spełniony — dopisane 2026-08-02.** Wybór wariantu (2) był warunkowy: ścieżka CPU miała
+zostać pokryta testami golden PNG, bo bez nich nikt na nią nie patrzy do M4. Przez trzy dni tego
+warunku nie było, i **kosztowało to dokładnie to, przed czym miał chronić**: ikona Menu Start
+zmieniła wygląd powłoki, a cały zestaw testów przeszedł bez uwag.
+
+Teraz `crates/gostui-render/tests/golden/` trzyma cztery sceny porównywane co do piksela przez
+zwykłe `cargo test`: monitor, telefon w pionie przy skali 2, pasek za wąski na wszystkie
+elementy, i pusta sesja. **Piksele, nie zrzut listy wyświetlania** — lista jest wspólna dla obu
+ścieżek, więc usterka w rasteryzerze CPU zostawia ją identyczną; rasteryzer widać tylko
+w pikselach, a to on jest tu chroniony.
+
+Sceny nie zawierają tekstu, bo zegar jest jedynym tekstem powłoki i `clock: None` usuwa wszystkie
+glify. To nie jest uproszczenie, tylko warunek odtwarzalności: glify przywiązałyby wzorce do
+wersji czcionek maszyny, która je narysowała. **Sprawdzone: pliki z tej stacji zgadzają się co do
+piksela na maszynie CI** — czyli rasteryzer jest deterministyczny nie tylko między przebiegami,
+ale i między maszynami, co jest cichym założeniem całego tego wariantu. Koszt w CI: `check`
+z ~57 s do ~1 min 36 s.
+
+**Uwaga do historii:** commit wprowadzający te testy powołuje się na „D-010" zamiast na tę
+decyzję. Numer jest błędny (D-010 dotyczy wielu wyjść), a historia jest publiczna, więc korekta
+mieszka tutaj i w komentarzu modułu `golden.rs`.
 **Odniesienie:** `01-strategia-dev-test.md` §4, D-001, D-016, D-027, D-029
 
 ## D-029 — Budżet RSS osobno dla ścieżki Pixman i dla GLES2
@@ -1205,7 +1227,7 @@ a rozłączanie klienta za wartość, która zawsze działała, to regresja kupi
 | D-025 | Model okien | Kafelkowanie z limitem widocznych okien; dialogi i popupy pływające |
 | D-026 | Dobór telefonu | Wymagane wyjście obrazu (DP alt mode, SDM845); model wyjść jako kolekcja od M1 |
 | D-027 | Stary PC | Główny cel wdrożeniowy; RSS < 80 MB jako test, ścieżka Pixman równorzędna |
-| D-028 | smithay | 0.7.0 bez domyślnych cech, tylko `backend_winit`; reszta cech dochodzi per etap |
+| D-028 | smithay | 0.7.0 bez domyślnych cech, tylko `backend_winit`; Pixman zagnieżdżony jako CPU do tekstury — **warunek złotych obrazów spełniony 2026-08-02** |
 | D-029 | Budżet RSS | **ZASTĄPIONA w części progów przez D-038**; uzasadnienie „dwa progi" w mocy |
 | D-005 | Stack tekstowy | `cosmic-text`; tekst rasteryzowany raz, wykonywany przez obie ścieżki |
 | D-032 | Motyw | Kolory, rozmiary i czcionki jako dane w `theme.toml`; podłoga dotykowa 48 |
