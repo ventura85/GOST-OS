@@ -98,6 +98,16 @@ z `gostui-core` i je wypełnia. Rozmieszczenie elementów górnego paska (`top_b
 siedzi w core właśnie dlatego — na wąskim ekranie trzeba zdecydować, co **wypada**, a to
 decyzja do przetestowania `cargo test`, nie do obejrzenia.
 
+### Nic nie powstaje na `main` (1/3)
+**Każdą pracę zaczynasz od gałęzi.** Nie „gdy zmiana jest duża", nie „gdy nie jestem pewny" —
+zawsze. Pierwsza komenda nowego zadania:
+
+```bash
+git switch -c m2/krok-5-dekoracje     # <etap>/<krok-lub-temat>
+```
+
+Pełne uzasadnienie i reszta rytmu: `§ Higiena repozytorium → Praca na gałęziach`.
+
 ### Nic, czego nie uruchomiłem, nie idzie do commita
 Zasada z doświadczenia, nie z ostrożności: `Dockerfile` i `deny.toml` trafiły do repozytorium
 niesprawdzone i **oba były zepsute**. Przed commitem:
@@ -110,6 +120,10 @@ niesprawdzone i **oba były zepsute**. Przed commitem:
 | formatowanie | `cargo fmt --all` |
 
 CI (`.github/workflows/ci.yml`) robi dokładnie to samo — jeśli przechodzi lokalnie, przejdzie tam.
+
+**A commit i tak nie idzie na `main` (2/3).** Powstaje na gałęzi i wchodzi przez pull request,
+z zielonym CI. `main` jest chroniony, więc push wprost i tak zostanie odrzucony — zasada jest
+egzekwowana, nie deklarowana.
 
 ## Dokumenty — czytaj w tej kolejności
 
@@ -337,6 +351,45 @@ scripts/zainstaluj-haki.sh
 
 **Gdy hak albo CI cokolwiek zgłosi: usuń przyczynę, nie ostrzeżenie.** `git commit --no-verify`
 w tym repozytorium jest równoznaczne z wypuszczeniem danych na zewnątrz.
+
+### Praca na gałęziach (3/3 — pełna zasada)
+
+**Na `main` nic nie powstaje. Powstaje na gałęzi i wchodzi przez pull request z zielonym CI.**
+
+Trzy powody, każdy sam wystarczy:
+
+1. **Krok etapu może wyjść źle i trzeba go wycofać.** M2 jest w `docs/01` oznaczone jako
+   ⚠️ punkt weryfikacji ryzyka — to nie ozdobnik, tylko zapowiedź, że któryś krok może okazać się
+   pomyłką. Porzucenie gałęzi kosztuje nic. Cofanie `main` kosztuje historię, **która jest już
+   publiczna i której git nie zapomina** — dokładnie ta sama arytmetyka, co w zasadzie czystego
+   repozytorium wyżej.
+2. **Werdykt CI ma przychodzić przed `main`, nie po.** Workflow startuje i na `push` do `main`,
+   i na `pull_request`. Bez gałęzi dowiadujesz się, że build jest zepsuty, gdy jest już zepsuty
+   na gałęzi głównej.
+3. **Recenzja ma gdzie mieszkać.** W tym projekcie propozycja techniczna idzie przed kodem
+   (patrz `§ Zanim zaproponujesz rozwiązanie techniczne`). Opis PR-a jest jedynym miejscem, gdzie
+   ta recenzja zostaje na stałe — rozmowa znika, opis PR-a zostaje przy commitach na zawsze.
+
+Rytm, jedna gałąź na krok etapu:
+
+```bash
+git switch -c m2/krok-5-dekoracje         # nazwa: <etap>/<krok-lub-temat>
+# ... praca, commity jak zwykle — hak higieny działa tak samo
+git push -u origin m2/krok-5-dekoracje
+gh pr create --fill                       # CI rusza na PR
+gh pr checks --watch                      # zielone albo nie ma merge'a
+gh pr merge --rebase --delete-branch       # historia zostaje liniowa, commity osobno
+```
+
+**`--rebase`, nie `--squash`:** commity w tym repozytorium są pisane po to, żeby je czytać
+pojedynczo. Zgniecenie kroku etapu w jeden commit kasuje właśnie tę wartość.
+
+**Egzekwowane, nie deklarowane.** `main` na GitHubie jest chroniony: push wprost odrzucany,
+merge tylko przez PR z przechodzącym CI. Zasada, której nikt nie egzekwuje, jest życzeniem —
+to zdanie z początku tego dokumentu dotyczy także tej zasady.
+
+**Jedyny wyjątek:** poprawka samej konfiguracji CI, która uniemożliwia przejście CI (kurczak
+i jajko). Wtedy PR z opisem, dlaczego nie dało się inaczej.
 
 ### Pozostałe
 
