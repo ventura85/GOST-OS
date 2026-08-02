@@ -3,12 +3,16 @@
 //!
 //! # Why this exists
 //!
-//! It is a condition of a decision already taken, not a new idea. D-010 chose to
-//! run the nested Pixman path as "CPU into a texture" rather than build a second
-//! nested backend, **on the condition that the CPU path is covered by golden PNG
-//! tests** — the risk being that a path nobody looks at until M4 rots quietly.
-//! The condition went unmet, and it showed: adding the Start Menu icon changed
-//! what the shell looks like and not one test noticed.
+//! It is a condition of a decision already taken, not a new idea. **D-028**
+//! chose to run the nested Pixman path as "CPU into a texture" rather than
+//! build a second nested backend, **on the condition that the CPU path is
+//! covered by golden PNG tests** — the risk being that a path nobody looks at
+//! until M4 rots quietly. The condition went unmet, and it showed: adding the
+//! Start Menu icon changed what the shell looks like and not one test noticed.
+//!
+//! (The commit that introduced this file cites D-010 for that condition. That is
+//! wrong — D-010 is about multiple outputs — and the history is public, so the
+//! correction lives here rather than in a rewritten message.)
 //!
 //! # Why pixels and not a snapshot of the display list
 //!
