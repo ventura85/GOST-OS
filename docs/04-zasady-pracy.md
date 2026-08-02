@@ -63,9 +63,20 @@ od klienta); renderowanie zajmuje 0,2–0,3% czasu pracy procesu. Szczegóły i 
 tego pomiaru: `docs/01-strategia-dev-test.md` §3.5. **Instrumentacja sama nie może się budzić** —
 dlatego wypis jest per klatka, a nie co sekundę, jak mówił pierwotny plan.
 
-**Następny krok: M2 krok 5** — dekoracje i okna nietypowe: `xdg-decoration` (SSD — kafelki nie
-rysują własnych ramek), popupy przez `xdg_positioner`, dialogi pływające, pełny ekran.
-Kroki M2 z kryteriami: `docs/01-strategia-dev-test.md` §4, sekcja M2.
+**Następny krok: M2 krok 6** — domknięcie: `gtk4-demo` i Qt6, kopiuj-wklej w obie strony,
+klient-fuzzer. Kroki M2 z kryteriami: `docs/01-strategia-dev-test.md` §4, sekcja M2.
+
+**Okno nie ma paska tytułu i to jest decyzja (D-043).** Dekoracją jest sama ramka fokusu:
+okien się nie przesuwa (D-025), więc pasek do chwytania byłby kosztem wysokości każdego kafelka
+bez pożytku, a nazwa okna i droga powrotna do niego żyją na dolnym pasku. **GTK i tak rysuje
+swój nagłówek** — nie implementuje `xdg-decoration` i `GTK_CSD=0` tego nie zmienia (sprawdzone).
+Pełny ekran jest jedyną powierzchnią nad paskami, a wyjście z niego (`Super+F`) należy
+do powłoki, nie do klienta (D-042).
+
+**Bufor klienta to nie jest jego okno.** Klient rysujący własne dekoracje trzyma cienie **poza**
+zadeklarowaną geometrią (`xdg_surface.set_window_geometry`), więc bufor zaczyna się nad i na lewo
+od okna, które widzi człowiek. Renderer ten margines pomija, a wskaźnik go dodaje — obie strony
+albo żadna, inaczej okno jest rysowane w jednym miejscu, a klikane w innym.
 
 **Wejście ma dwie granice, tak jak rysowanie.** Co znaczy punkt na ekranie (`hit_test`) i co robi
 kombinacja klawiszy (`Keymap`) siedzi w `gostui-core::input` i ma testy bez kompozytora;
