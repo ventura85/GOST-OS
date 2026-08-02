@@ -251,6 +251,79 @@ impl WindowModel {
         Some(id)
     }
 
+    /// Turn a window that was opened as a toplevel into a dialog belonging to
+    /// `parent`.
+    ///
+    /// # Why a window can be born with the wrong role
+    ///
+    /// `xdg_toplevel.set_parent` arrives **after** `get_toplevel`, so at the
+    /// moment a window is created the compositor cannot yet know whether it is
+    /// an application window or a "Save as". Deciding the role at creation and
+    /// never revisiting it means every dialog is tiled — which is exactly what
+    /// GTK's file chooser did when it was first put in front of this
+    /// compositor: it took a tile beside its own parent (measured 2026-08-02).
+    ///
+    /// So the role is settled the same way the title and the minimum size are:
+    /// re-read on commit, because clients send these when they feel like it.
+    ///
+    /// Returns false when there is nothing to do — the window is already a
+    /// child, the parent is unknown, or a client named itself as its own parent.
+    pub fn adopt_as_dialog(&mut self, id: WindowId, parent: WindowId) -> bool {
+        // A window parenting itself would build a cycle that `close` walks for
+        // ever. The client is wrong; the compositor is not going to hang for it.
+        if id == parent || self.get(parent).is_none() {
+            return false;
+        }
+        let Some(window) = self.get(id) else {
+            return false;
+        };
+        if window.role != SurfaceRole::Toplevel || window.parent == Some(parent) {
+            return false;
+        }
+        // A parent that is itself a descendant of this window: same cycle, one
+        // step further away.
+        if self.is_descendant(parent, id) {
+            return false;
+        }
+
+        // The parent was checked above, so this cannot fail — and asking again
+        // rather than indexing a fallback output keeps it that way.
+        let Some(output) = self.get(parent).map(|p| p.output) else {
+            return false;
+        };
+        if let Some(w) = self.get_mut(id) {
+            w.role = SurfaceRole::Dialog;
+            w.parent = Some(parent);
+            w.output = output;
+        }
+
+        // It gives up its tile and its place on the bar: a dialog belongs to its
+        // parent, not to the tiling. The freed tile goes to whoever waited
+        // longest, so the screen never keeps a hole.
+        for slot in &mut self.outputs {
+            slot.order.retain(|w| *w != id);
+            slot.tiled.retain(|w| *w != id);
+            slot.fill_free_tiles();
+        }
+        // A dialog takes focus — the same rule as one opened as a dialog.
+        self.focus = Some(id);
+        true
+    }
+
+    /// Is `candidate` somewhere below `ancestor` in the parent chain?
+    fn is_descendant(&self, candidate: WindowId, ancestor: WindowId) -> bool {
+        let mut at = candidate;
+        // Bounded by the window count: a malformed chain cannot spin here.
+        for _ in 0..self.windows.len() {
+            match self.get(at).and_then(|w| w.parent) {
+                Some(p) if p == ancestor => return true,
+                Some(p) => at = p,
+                None => return false,
+            }
+        }
+        false
+    }
+
     fn push_window(&mut self, w: Window) -> WindowId {
         let id = w.id;
         self.next_id += 1;
@@ -1005,5 +1078,60 @@ mod tests {
         m.close(a);
         let b = m.open_toplevel(A, "b", "B");
         assert_ne!(a, b, "a stale protocol reference must not hit a new window");
+    }
+
+    #[test]
+    fn a_window_that_names_a_parent_late_stops_being_tiled() {
+        // The file chooser case, which is trap 2 arriving by a side door: the
+        // window is created before `set_parent` is sent, so it is born looking
+        // like an application window and only afterwards turns out to be a
+        // dialog. Measured against GTK on 2026-08-02, where the chooser took a
+        // tile beside the window that opened it.
+        let mut m = model(2);
+        let parent = m.open_toplevel(A, "gtk3-app", "Rodzic");
+        let chooser = m.open_toplevel(A, "gtk3-app", "Wybierz plik");
+        assert_eq!(m.tiled(A), &[parent, chooser], "born as an ordinary window");
+
+        assert!(m.adopt_as_dialog(chooser, parent));
+
+        let w = m.get(chooser).unwrap();
+        assert_eq!(w.role, SurfaceRole::Dialog);
+        assert_eq!(w.parent, Some(parent));
+        assert_eq!(m.tiled(A), &[parent], "the tile goes back to the parent");
+        assert!(!m.bar(A).contains(&chooser), "a dialog is not on the bar");
+        assert_eq!(m.focused(), Some(chooser), "a dialog takes focus");
+    }
+
+    #[test]
+    fn a_freed_tile_goes_to_a_window_that_was_waiting() {
+        // Adopting is not just relabelling: the tile it gives up must be filled,
+        // or the screen keeps a hole while a window queues on the bar.
+        let mut m = model(2);
+        let parent = m.open_toplevel(A, "app", "Rodzic");
+        let dialog = m.open_toplevel(A, "app", "Zapisz jako");
+        let waiting = m.open_toplevel(A, "foot", "Terminal");
+        // Capacity 2, so one of the three is on the bar.
+        assert_eq!(m.bar(A).len(), 3);
+
+        m.adopt_as_dialog(dialog, parent);
+        assert_eq!(m.tiled(A).len(), 2, "the tile did not stay empty");
+        assert!(m.tiled(A).contains(&waiting), "the waiting window moved up");
+    }
+
+    #[test]
+    fn a_client_cannot_build_a_parent_cycle() {
+        // Everything reachable from a protocol handler has to survive nonsense
+        // by refusing it. A cycle here would make `close` walk for ever, which
+        // is a hang rather than a crash — and a hung compositor is every
+        // application the user had open (docs/04, resilience).
+        let mut m = model(2);
+        let a = m.open_toplevel(A, "a", "A");
+        let b = m.open_toplevel(A, "b", "B");
+
+        assert!(!m.adopt_as_dialog(a, a), "a window is not its own parent");
+        assert!(m.adopt_as_dialog(b, a));
+        assert!(!m.adopt_as_dialog(a, b), "b already descends from a");
+        assert!(!m.adopt_as_dialog(a, WindowId(999)), "unknown parent");
+        assert!(!m.adopt_as_dialog(WindowId(999), a), "unknown window");
     }
 }

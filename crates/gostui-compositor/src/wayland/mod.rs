@@ -421,9 +421,9 @@ impl Wayland {
 
     /// Copy the client-owned parts of a toplevel's state into the model.
     ///
-    /// Titles, app ids and minimum sizes arrive as protocol requests at times of
-    /// the client's choosing, so they are re-read on commit rather than trusted
-    /// from map time.
+    /// Titles, app ids, minimum sizes **and the parent** arrive as protocol
+    /// requests at times of the client's choosing, so they are re-read on commit
+    /// rather than trusted from map time.
     pub fn refresh_metadata(&self, model: &mut WindowModel, window: WindowId) {
         let Some(toplevel) = self.toplevel_of(window) else {
             return;
@@ -434,6 +434,17 @@ impl Wayland {
             w.app_id = app_id;
             w.title = title;
             w.min_size = min;
+        }
+
+        // The parent belongs in this list and used to be read only at map time,
+        // which was wrong for a reason worth remembering: `set_parent` is sent
+        // **after** `get_toplevel`, so at creation every window looks parentless.
+        // A file chooser was therefore born as an ordinary window and tiled
+        // beside the window that opened it — trap 2 of D-025, reached by a side
+        // door. The model refuses a cycle, so a client naming nonsense here
+        // changes nothing.
+        if let Some(parent) = toplevel.parent().and_then(|s| self.window_of(&s)) {
+            model.adopt_as_dialog(window, parent);
         }
     }
 
