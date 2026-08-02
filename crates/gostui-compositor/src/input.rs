@@ -43,8 +43,11 @@ use smithay::backend::input::{
 use smithay::input::keyboard::FilterResult;
 use smithay::input::pointer::{AxisFrame, ButtonEvent, MotionEvent, RelativeMotionEvent};
 use smithay::input::touch::{DownEvent, MotionEvent as TouchMotionEvent, UpEvent};
+use smithay::reexports::wayland_server::Resource as _;
 use smithay::utils::{Logical, Point as SmithayPoint, SERIAL_COUNTER};
 use smithay::wayland::pointer_constraints::{with_pointer_constraint, PointerConstraint};
+use smithay::wayland::selection::data_device::set_data_device_focus;
+use smithay::wayland::selection::primary_selection::set_primary_focus;
 
 impl State {
     /// The entry point from the backend's event source.
@@ -260,7 +263,24 @@ impl State {
             return;
         }
         let serial = SERIAL_COUNTER.next_serial();
-        keyboard.set_focus(self, surface, serial);
+        keyboard.set_focus(self, surface.clone(), serial);
+
+        // The clipboard follows the keyboard, and saying so is a separate call.
+        //
+        // smithay moves the data by itself, but it will not hand a selection to
+        // a client it has not been told is entitled to one — the rule that stops
+        // a background application reading what the user copied. Without these
+        // two lines a paste is silence: measured 2026-08-02, `wl-copy` set the
+        // selection and `wl-paste` received `wl_keyboard.enter` and then waited
+        // for a `wl_data_device.selection` that was never sent.
+        //
+        // Both selections, because wayland keeps the clipboard and the
+        // middle-click selection apart and users rely on the difference.
+        let dh = self.wayland.display.clone();
+        let seat = self.seat.clone();
+        let client = surface.and_then(|s| dh.get_client(s.id()).ok());
+        set_data_device_focus(&dh, &seat, client.clone());
+        set_primary_focus(&dh, &seat, client);
     }
 
     /// The pointer moved. Nothing the shell draws depends on this.
