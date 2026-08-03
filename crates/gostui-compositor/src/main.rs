@@ -156,10 +156,7 @@ fn run() -> i32 {
         }
     }
 
-    let mut tabs = TabStrip::new();
-    for name in ["Pliki", "Praca", "Rozrywka"] {
-        tabs.add(name);
-    }
+    let tabs = placeholder_tabs();
     let names: Vec<_> = tabs.iter().map(|t| t.name.as_str()).collect();
     println!("\ntabs:     {}", names.join(" · "));
     println!(
@@ -169,6 +166,32 @@ fn run() -> i32 {
 
     println!("\nOkno kompozytora: --backend winit. Klientów jeszcze nie ma (M2).");
     0
+}
+
+/// The stand-in tab strip, until cards come from configuration.
+///
+/// One function rather than the same three names copied into the diagnostic
+/// print, the PNG preview and the running compositor — they had already started
+/// to differ, and a placeholder that differs between the preview and the thing
+/// it previews is worse than no placeholder.
+///
+/// The shortcuts are here so that a card is drawn with something in it. They
+/// carry no icon and launch nothing: `LauncherItem` needs only an id and a name,
+/// and the tile grid needs only the count (D-046).
+pub(crate) fn placeholder_tabs() -> TabStrip {
+    let mut tabs = TabStrip::new();
+    for (name, items) in [("Pliki", 6), ("Praca", 4), ("Rozrywka", 7), ("Internet", 3)] {
+        let id = tabs.add(name);
+        if let Some(tab) = tabs.get_mut(id) {
+            for i in 0..items {
+                tab.items.push(gostui_core::tab::LauncherItem::new(
+                    format!("{}.{i}", name.to_lowercase()),
+                    format!("{name} {i}"),
+                ));
+            }
+        }
+    }
+    tabs
 }
 
 /// Load the user's theme, reporting anything that had to be corrected (D-032).
@@ -203,10 +226,7 @@ fn render_png(path: &str) {
     use gostui_core::shell::zones;
     use gostui_render::{paint, Canvas, ShellView};
 
-    let mut tabs = TabStrip::new();
-    for name in ["Pliki", "Praca", "Rozrywka"] {
-        tabs.add(name);
-    }
+    let mut tabs = placeholder_tabs();
     tabs.activate_next();
     let windows = vec!["Terminal".to_string(), "Firefox".to_string()];
     let theme = load_theme();
