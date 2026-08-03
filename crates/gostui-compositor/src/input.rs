@@ -439,27 +439,28 @@ impl State {
                     self.focus_changed();
                 }
             }
-            Hit::Card(i) => {
-                // A card is switched to by pointing at it. This is also the only
-                // check that the picture and the hit test agree about where the
-                // columns are — they share the arithmetic, but sharing it is a
-                // claim until a click lands on the card the user aimed at.
-                let Some(id) = self.tabs.iter().nth(i).map(|t| t.id) else {
+            // Anywhere inside a card, tile or not — `Hit::card` is where that
+            // rule lives, so it has a test and this arm has no opinion (D-016).
+            // Launching from a tile still needs the `.desktop` path wired to a
+            // process; when it arrives it goes here alongside the activation,
+            // not instead of it.
+            hit if hit.card().is_some() => {
+                let Some(id) = hit
+                    .card()
+                    .and_then(|i| self.tabs.iter().nth(i))
+                    .map(|t| t.id)
+                else {
                     return;
                 };
                 if self.tabs.set_active(id) {
                     self.request_redraw();
                 }
             }
-            // A tile is a launcher shortcut (D-008) and launching needs the
-            // `.desktop` path wired to a process; the tile is consumed rather
-            // than falling through to the card under it, so that a press that
-            // will later start an application never quietly switches cards.
-            Hit::CardTile { .. } => {}
             // The Start Menu (M3), the empty space beside the cards, and the
             // empty parts of both bars. Consumed, so a press on system space
             // never reaches an application; nothing to do about it yet.
             Hit::TopBar(_) | Hit::Desktop | Hit::BottomBar => {}
+            Hit::Card(_) | Hit::CardTile { .. } => unreachable!("caught by the guard above"),
         }
     }
 
