@@ -1262,6 +1262,17 @@ być prawdziwe.
 rysowaniem", którą stary `slider()` łamał. Złote obrazy przeliczone; doszła piąta scena
 `monitor-przewiniety` (9 kart), żeby skrawek i przewinięcie były pilnowane pikselem.
 
+**Naprawione po pierwszym uruchomieniu (2026-08-03), bo to jest treść, nie szczegół:**
+**każdy punkt karty należy do tej karty, łącznie z kaflami.** Pierwsza wersja traktowała
+kafel jako należący do niczego — z rozumowania, że kafel będzie kiedyś uruchamiał program
+i nie powinien „po cichu" przełączać karty. Zmierzone na działającej powłoce: przy oknie
+1360×850 karta ma 260×754, a jej kafle zajmują 204 szerokości i 312 wysokości, **czyli około
+jednej trzeciej kolumny, u góry, gdzie idzie oko i za nim palec**. Efekt: klikanie karty
+działało „czasem tak, czasem nie", zależnie od tego, ile skrótów miała karta. Uruchamianie
+i aktywacja nigdy nie były w konflikcie — `hit_test` nadal odróżnia kafel od karty (bo
+uruchamianie musi wiedzieć który), a `Hit::card` odpowiada na osobne pytanie „czyja to karta".
+Reguła siedzi w core i ma test chodzący po każdym punkcie każdej kolumny.
+
 **Odniesienie:** `gostos.md` §B (spełnione, bez odstępstwa), D-007, D-008, D-009, D-016, D-030,
 D-031 (zastąpiona), D-032, D-044
 

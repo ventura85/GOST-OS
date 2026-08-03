@@ -43,7 +43,7 @@ protokołu — **każde z tych narzędzi znalazło usterkę w kodzie uznanym za 
 kończącą sesję, osiągalną z dowolnego klienta (D-045).
 
 **Wygląd powłoki jest pilnowany obrazem, nie czyimś okiem (warunek D-010).**
-`crates/gostui-render/tests/golden/*.png` to cztery sceny rysowane ścieżką CPU i porównywane
+`crates/gostui-render/tests/golden/*.png` to pięć scen rysowanych ścieżką CPU i porównywanych
 co do piksela; zwykłe `cargo test` je uruchamia. **Żadna nie zawiera tekstu** — zegar jest
 jedynym tekstem powłoki, więc `clock: None` usuwa wszystkie glify, i dlatego te pliki wychodzą
 identycznie na tej stacji i w CI (sprawdzone). Zmieniłeś wygląd celowo:
@@ -56,7 +56,7 @@ Przebieg z błogosławieństwem **celowo kończy się błędem**, żeby nie dał
 z zielonym, a przy niezgodności test zapisuje `*.actual.png` obok wzorca. **Obejrzyj oba, zanim
 pobłogosławisz** — to jedyna komenda w tym repozytorium, która zamienia regresję w fakt.
 
-`cargo test --workspace` — 218 testów, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
+`cargo test --workspace` — 233 testy, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
 `cargo run -p gostui-compositor -- --png ui.png` — rysuje interfejs do dwóch PNG-ów
 (monitor i telefon) z tego samego stanu, z zegarem w górnym pasku.
 `cargo run -p gostui-compositor -- --backend winit [--renderer gles2|pixman] [--frames n]` —
@@ -86,36 +86,32 @@ od klienta); renderowanie zajmuje 0,2–0,3% czasu pracy procesu. Szczegóły i 
 tego pomiaru: `docs/01-strategia-dev-test.md` §3.5. **Instrumentacja sama nie może się budzić** —
 dlatego wypis jest per klatka, a nie co sekundę, jak mówił pierwotny plan.
 
-**M3 jest zaczęte od brzegów: ikona Menu Start (cztery kwadraty, D-044) i złote obrazy.**
-Właściwy slider kart nie ruszył i **nie powinien ruszyć bez rozmowy** — patrz akapit niżej.
+**M3: środkowa strefa stoi. Karta jest kolumną o stałej szerokości (D-046).**
+Ile kart widać, **wynika z szerokości wyjścia** i nie jest ustawieniem: 7 na monitorze 1920,
+2 i skrawek na telefonie poziomo, 1 i skrawek pionowo. Kolumna nigdy się nie rozciąga — zmienia
+się tylko ich liczba. `card_columns` i `layout_tiles` w `gostui-core::shell` liczą geometrię,
+`paint.rs` ją tylko wypełnia, a `hit_test` czyta **te same dwie funkcje**. Liczba kolumn kafli
+w karcie też wynika z miejsca, nie z ustawienia — nigdzie w kodzie nie jest napisane „dwie".
 
-### Zanim napiszesz slider kart: jedno pytanie do człowieka, nie do rejestru
+**Blokada D-031 zniknęła i warto wiedzieć jak**, bo ten kształt sporu się powtórzy: „skrawki
+ze specyfikacji" kontra „pasek nazw" było źle postawione, bo **obie strony zakładały jedną kartę
+widoczną naraz** — a to jest model telefonu, nie pulpitu. Przy kartach jako kolumnach karta,
+która się nie mieści, jest rysowana przycięta, **i to jest skrawek z `gostos.md` §B**.
+Odstępstwo przestało istnieć, specyfikacji nie trzeba było zmieniać, a konflikt gestów z D-030
+rozwiązał się sam (w bok = karty, w pionie = kafle). D-031 ma status ZASTĄPIONA.
 
-Slider składa się z decyzji, które rejestr trzyma w dwóch różnych stanach — i różnica jest
-praktyczna, nie formalna:
+**Jedna rzecz zmierzona dopiero na działającej powłoce, warta zapamiętania:** kafle zajmują
+około **jednej trzeciej karty, u góry** — tam, gdzie idzie oko i za nim palec. Wersja,
+w której klik w kafel nie należał do żadnej karty, dawała powłokę „łapiącą kliknięcia czasem".
+Reguła „każdy punkt karty należy do tej karty" siedzi teraz w `Hit::card` w core i ma test
+chodzący po każdym punkcie każdej kolumny. **Trafienia sprawdzaj klikaniem, nie czytaniem** —
+testy potwierdzały zgodność `paint`/`hit_test` przez cały czas i nie zauważyły niczego, bo
+zgodność była prawdziwa. Zła była decyzja, nie arytmetyka.
 
-| Decyzja | O czym | Stan |
-|---|---|---|
-| **D-031** | pasek nazw kart + tablica kafli zamiast ramy karty i skrawków | **przeczytać przed kodem**; jest **odstępstwem od `gostos.md` §B** |
-| D-030 | orientacja pozioma domyślna na telefonie | przeczytać przed kodem |
-| D-033 | kafel żywy | przeczytać przed kodem |
-| D-007 | `Super+←/→` globalnie, gołe strzałki tylko przy fokusie slidera | rekomendacja przyjmowana domyślnie |
-| D-008 | karta = siatka skrótów, nie osadzone widoki aplikacji | rekomendacja przyjmowana domyślnie |
-| D-009 | karta przypięta: najwyżej jedna, rezerwuje przestrzeń | rekomendacja przyjmowana domyślnie |
-
-Trzy dolne można realizować, zaznaczając jawnie, że bierze się rekomendację z rejestru — na tym
-polega „przyjmowana domyślnie". **Rozmowy wymaga D-031**, i to z jednego powodu: `gostos.md` §B
-wymaga skrawków sąsiednich kart, a D-031 zastępuje je paskiem nazw. Argument jest mocny i oparty
-na pomiarze (skrawek 28 jednostek ciemnego tła na ciemnym tle jest praktycznie niewidoczny) oraz
-na konflikcie gestów z D-030 — ale **specyfikacja jest źródłem prawdy i nie zmienia się bez
-wyraźnej prośby użytkownika**. Więc albo pada zgoda i `gostos.md` zostaje poprawiony, albo slider
-powstaje ze skrawkami. Tego nie rozstrzyga rejestr.
-
-**Praktyczna konsekwencja dla kodu:** obecne rysowanie środkowej strefy (`paint.rs`, `slider`)
-to **stary układ pływających kart**, który D-031 usuwa — jego rozmiary są tam świadomie
-zostawione jako stałe, z komentarzem wyjaśniającym dlaczego nie trafiły do motywu. Nie rozwijaj
-go, dopóki D-031 nie jest rozstrzygnięta; złote obrazy utrwalają jego dzisiejszy wygląd, więc
-zmiana odezwie się w CI i to jest zamierzone.
+Co ze slidera zostaje: **D-033 (kafel żywy)** i **D-030** — przeczytać przed kodem; ikony
+funkcyjne w nagłówku karty, resize przeciąganiem krawędzi, tryb edycji, ikony i podpisy
+na kaflach, `Super+←/→` z D-007. **D-007, D-008 i D-009** realizuj, zaznaczając jawnie,
+że bierzesz rekomendację z rejestru.
 
 **Trzy rzeczy zostały świadomie niezrobione i nie są zapomniane:** `linux-dmabuf` nie jest
 ogłaszany w ogóle, damage obejmuje całe okno zamiast uszkodzonych regionów (D-027), a budżet
