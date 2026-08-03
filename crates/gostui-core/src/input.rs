@@ -246,6 +246,28 @@ pub enum Hit {
     BottomBar,
 }
 
+impl Hit {
+    /// Which card this point belongs to, whether or not it landed on a tile.
+    ///
+    /// A press inside a card activates that card — including a press on one of
+    /// its tiles. The first version of this treated a tile as belonging to
+    /// nothing, on the reasoning that a tile will one day launch an application
+    /// and should not "quietly" switch cards as a side effect. Measured against
+    /// a running shell that was simply wrong: tiles cover about a third of a
+    /// card and sit at the top of it, where the eye goes, so a third of every
+    /// card was dead and the shell felt like it registered clicks at random.
+    ///
+    /// Launching and activating are not in competition. `hit_test` still tells
+    /// [`Hit::CardTile`] apart from [`Hit::Card`], because launching needs to
+    /// know which tile — this is only the question "whose card was that?".
+    pub fn card(self) -> Option<usize> {
+        match self {
+            Self::Card(card) | Self::CardTile { card, .. } => Some(card),
+            _ => None,
+        }
+    }
+}
+
 /// Resolve a point on one output to whatever is under it.
 ///
 /// `placed` is that output's windows as [`WindowModel::layout`] returned them —
@@ -589,6 +611,32 @@ mod tests {
         // and must not read as the shortcut above it.
         let below = Point::new(card.x() + card.w() / 2, card.bottom() - 2);
         assert_eq!(hit_test(&z, &[], 0, &tabs, &m, below), Hit::Card(1));
+    }
+
+    #[test]
+    fn every_point_of_a_card_belongs_to_that_card_tiles_included() {
+        // The regression this exists for: tiles used to belong to no card, so a
+        // third of every column — the part with something drawn in it — did
+        // nothing when pressed, and the shell looked like it dropped clicks.
+        let (z, m, tabs) = (monitor(), Metrics::default(), strip(4, 8));
+        let layout = card_columns(z.apps, &m, 4, 0);
+        for (n, card) in layout.cards.iter().enumerate() {
+            let index = layout.first + n;
+            for y in (card.y()..card.bottom()).step_by(17) {
+                for x in (card.x()..card.right()).step_by(13) {
+                    let hit = hit_test(&z, &[], 0, &tabs, &m, Point::new(x, y));
+                    assert_eq!(
+                        hit.card(),
+                        Some(index),
+                        "({x}, {y}) is inside card {index} but reads as {hit:?}"
+                    );
+                }
+            }
+        }
+        // And nothing outside a card claims to be one.
+        let past = Point::new(layout.cards.last().unwrap().right() + 6, z.apps.y() + 40);
+        assert_eq!(hit_test(&z, &[], 0, &tabs, &m, past).card(), None);
+        assert_eq!(Hit::BottomBar.card(), None);
     }
 
     #[test]
