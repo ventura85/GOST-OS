@@ -649,7 +649,11 @@ w `Transform` od początku — ale przestaje być przypadkiem projektowym, dla k
 **Odniesienie:** `03-cel-telefon.md`, podglądy `podglad/e-okna-telefon-{pion,poziom}.png`
 
 ## D-031 — Struktura środkowej strefy: pasek kart zamiast ramy karty
-**Status:** OTWARTA (rekomendacja: przyjąć) — **odstępstwo od `gostos.md` §B**
+**Status:** ⛔ **ZASTĄPIONA przez D-046** (2026-08-03) — nigdy nie weszła do kodu.
+Wpis zostaje w całości, bo jego pomiary są nadal prawdziwe; nieprawdziwe okazało się
+**założenie wspólne dla niego i dla `gostos.md` §B**: że widoczna jest jedna karta naraz.
+Przy kartach jako kolumnach skrawek powstaje sam i pasek nazw jest niepotrzebny.
+Poprzedni status: OTWARTA (rekomendacja: przyjąć) — **odstępstwo od `gostos.md` §B**
 **Kontekst:** Użytkownik: „chcę pozbycia się śmietnika pulpitu tradycyjnego i zastąpienia go
 szybkim dostępem do funkcji i danych". Cztery warianty rozrysowane i obejrzane
 (`podglad/{a,b,c,d}-*.png`) na trzech wyjściach.
@@ -718,8 +722,11 @@ równoległa paleta. **Obraz sprawdzony: PNG-i przed i po są identyczne co do b
 **Czego jeszcze nie ma:**
 - **wczytywania motywu z TOML** — `gostui-config` nadal zna tylko `font_size` i `icon_theme`.
   `gostui-core` celowo nie ma `serde`: mapowanie TOML → `Theme` należy do warstwy konfiguracji.
-- **rozmiarów starego slidera** (`CHIP_H`, `CARD_W`, `TILE`…) — zostały stałymi w `paint.rs`,
-  bo należą do układu, który D-031 zastępuje. Znikną razem z nim, nie przeniosą się.
+- ~~**rozmiarów starego slidera** (`CHIP_H`, `CARD_W`, `TILE`…)~~ — **zrobione 2026-08-03**:
+  `CARD_W`, `CARD_GAP`, `TILE` i `TILE_GAP` zniknęły z `paint.rs` razem z układem pływających
+  kart, a ich następcy (`card_width`, `card_gap`, `card_pad`, `card_header`) są w `Metrics`
+  (D-046). `tab_strip` zmienił nazwę na `card_header`: pole opisywało pasek nazw z D-031,
+  którego nie ma.
 - **wykrywania `Pointing`** — kompozytor musi je ustalać z obecności `wl_pointer`; dziś nikt
   tej funkcji nie woła, jest tylko gotowa i przetestowana.
 **Odniesienie:** D-005, D-011, D-016, D-020, D-030, D-031
@@ -1204,6 +1211,59 @@ a rozłączanie klienta za wartość, która zawsze działała, to regresja kupi
 
 **Odniesienie:** D-016, D-027 (`panic = "abort"`), `docs/01-strategia-dev-test.md` §4 M2 krok 6,
 `docs/04-zasady-pracy.md` § Odporność
+
+## D-046 — Karta jest kolumną o stałej szerokości, liczba kart wynika z ekranu
+**Status:** ✅ **PRZYJĘTA** (2026-08-03) — **zastępuje D-031**, wdrożona
+**Kontekst:** Środkowa strefa stała, bo D-031 była odstępstwem od `gostos.md` §B i wymagała
+rozmowy. Rozmowa wykazała, że **spór był źle postawiony**: i §B (jedna karta ze skrawkami
+sąsiadów), i D-031 (pasek nazw + tablica kafli na całą szerokość) milcząco zakładały **jedną
+kartę widoczną naraz**. To jest model telefonu. Użytkownik: „jedna karta na środku to model
+telefonu. Na pulpicie tych kart naturalnie musi być więcej, w zależności od rozdzielczości.
+Na moim monitorze spokojnie zmieściłoby się 7. Chciałbym, żeby karty były pogrupowane i żeby
+reprezentowały konkretny obszar."
+
+**Decyzja:** karta to **kolumna o stałej szerokości** (`Metrics::card_width`, domyślnie 260)
+na pełną wysokość strefy aplikacji. **Liczba widocznych kart nie jest ustawieniem** — wynika
+z szerokości wyjścia. Karta wygląda tak samo na monitorze i na telefonie; zmienia się tylko
+to, ile ich widać.
+
+| Wyjście | Strefa aplikacji | Kart widocznych |
+|---|---|---|
+| monitor 1920×1080 | 1920×984 | **7** |
+| telefon poziomo 780×360 | 780×264 | 2 pełne + skrawek trzeciej |
+| telefon pionowo 360×780 | 360×684 | 1 pełna + skrawek |
+
+**To rozwiązuje konflikt zamiast go rozstrzygać — i to jest cała treść tej decyzji:**
+
+1. **Skrawek przestaje być funkcją do zaprojektowania.** Karta, która się nie mieści, jest
+   rysowana przycięta do krawędzi strefy. To *jest* „skrawek jako wizualna podpowiedź, że jest
+   kolejna karta" z §B. **Odstępstwo od specyfikacji znika — `gostos.md` nie wymaga zmiany.**
+2. **Konflikt gestów z D-030 znika.** Istniał wyłącznie przy tablicy kafli na całą szerokość,
+   przewijanej w bok. Przy kolumnach osie są rozłączne: **w bok = przewijanie kart, w pionie =
+   przewijanie kafli w karcie.**
+3. **Trzy rzeczy ze specyfikacji odzyskują miejsce**, które D-031 im zabierała: ikony funkcyjne
+   karty (nagłówek kolumny, `Metrics::card_header`), resize przeciąganiem (krawędź kolumny),
+   karta przypięta z D-009 (pierwsza z lewej, nie przewija się).
+
+**Przewinięcie jest wyliczane, nie przechowywane.** `CardLayout::first` wynika z aktywnej karty,
+bo przewijanie ma dokładnie jedną przyczynę: karta z fokusem musi być widoczna. Osobne pole
+byłoby drugą odpowiedzią na pytanie, które ma już jedną, a `Super+←/→` (D-007) musiałoby
+pamiętać o jej aktualizacji.
+
+**Liczba kolumn kafli w karcie też nie jest ustawieniem** — wynika z miejsca po odjęciu
+marginesów, tak jak `tile_limit` i `bottom_bar_layout` już liczą swoje. Przy domyślnych
+metrykach wychodzą dwie, ale **nigdzie w kodzie nie jest napisane „dwie"**: zwężenie karty
+w motywie daje jedną kolumnę zamiast sprzeczności między dwiema liczbami, które obie miały
+być prawdziwe.
+
+**Wdrożenie (2026-08-03):** `gostui_core::shell::card_columns` i `layout_tiles` z 8 testami;
+`hit_test` zwraca `Hit::Card` i `Hit::CardTile`, czytając **te same dwie funkcje** co painter —
+`paint.rs` nie liczy już żadnej pozycji sam, co domyka regułę „layout jest logiką, nie
+rysowaniem", którą stary `slider()` łamał. Złote obrazy przeliczone; doszła piąta scena
+`monitor-przewiniety` (9 kart), żeby skrawek i przewinięcie były pilnowane pikselem.
+
+**Odniesienie:** `gostos.md` §B (spełnione, bez odstępstwa), D-007, D-008, D-009, D-016, D-030,
+D-031 (zastąpiona), D-032, D-044
 
 ---
 

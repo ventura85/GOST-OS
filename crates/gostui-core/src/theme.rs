@@ -216,8 +216,16 @@ impl Pointing {
 pub struct Metrics {
     pub top_bar: i32,
     pub bottom_bar: i32,
-    /// Height of the tab strip above the tile board (D-031).
-    pub tab_strip: i32,
+    /// Height of a card's header, where its name goes (D-046).
+    pub card_header: i32,
+    /// Width of one card column. How many are on screen follows from this and
+    /// the width of the output — the count is never configured directly, which
+    /// is what lets one card look the same on a monitor and on a phone (D-046).
+    pub card_width: i32,
+    /// Gap between card columns.
+    pub card_gap: i32,
+    /// Margin between a card's edge and its contents.
+    pub card_pad: i32,
     /// One cell of the tile grid. A 2×2 tile is two of these plus one gap.
     pub tile_unit: i32,
     pub tile_gap: i32,
@@ -234,7 +242,12 @@ impl Default for Metrics {
         Self {
             top_bar: MIN_TOUCH_TARGET,
             bottom_bar: MIN_TOUCH_TARGET,
-            tab_strip: MIN_TOUCH_TARGET,
+            card_header: MIN_TOUCH_TARGET,
+            // 260 puts seven cards on a 1920 monitor and two-and-a-sliver on a
+            // phone held sideways, and leaves room for two tile columns inside.
+            card_width: 260,
+            card_gap: 12,
+            card_pad: 12,
             tile_unit: 96,
             tile_gap: 12,
             inner_gap: 4,
@@ -286,10 +299,13 @@ impl Metrics {
 
         clamp("top_bar", &mut out.top_bar, floor, TOUCHABLE);
         clamp("bottom_bar", &mut out.bottom_bar, floor, TOUCHABLE);
-        clamp("tab_strip", &mut out.tab_strip, floor, TOUCHABLE);
+        clamp("card_header", &mut out.card_header, floor, TOUCHABLE);
+        clamp("card_width", &mut out.card_width, floor, TOUCHABLE);
         clamp("tile_unit", &mut out.tile_unit, floor, TOUCHABLE);
         // Gaps may legitimately be zero; they may not be negative, which would
         // make a tile larger than the area it was cut from.
+        clamp("card_gap", &mut out.card_gap, 0, NON_NEGATIVE);
+        clamp("card_pad", &mut out.card_pad, 0, NON_NEGATIVE);
         clamp("tile_gap", &mut out.tile_gap, 0, NON_NEGATIVE);
         clamp("inner_gap", &mut out.inner_gap, 0, NON_NEGATIVE);
         clamp("outer_gap", &mut out.outer_gap, 0, NON_NEGATIVE);
