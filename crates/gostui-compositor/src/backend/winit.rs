@@ -174,10 +174,7 @@ pub fn run(
     let mut event_loop: EventLoop<State> = EventLoop::try_new()?;
 
     let size = backend.window_size();
-    let mut tabs = TabStrip::new();
-    for name in ["Pliki", "Praca", "Rozrywka"] {
-        tabs.add(name);
-    }
+    let tabs = crate::placeholder_tabs();
     let renderer = render::build(kind);
     let label = renderer.label();
     let now = crate::clock::now_local();
