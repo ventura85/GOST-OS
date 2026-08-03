@@ -64,9 +64,9 @@ pub(crate) struct State {
     renderer: Box<dyn ShellRenderer>,
     signal: LoopSignal,
     /// The user's appearance, loaded once at startup (D-032).
-    theme: gostui_core::Theme,
+    pub(crate) theme: gostui_core::Theme,
     /// Placeholder tab strip. Real tabs come from the configuration in M3.
-    tabs: TabStrip,
+    pub(crate) tabs: TabStrip,
     /// Real windows, from real clients (D-025). Which one holds which tile is
     /// decided here and nowhere else.
     pub(crate) windows: WindowModel,

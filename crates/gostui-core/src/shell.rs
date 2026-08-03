@@ -21,6 +21,7 @@
 //! as the whole world.
 
 use crate::geometry::Rect;
+use crate::theme::Metrics;
 
 /// Smallest comfortable touch target, in logical units.
 ///
@@ -170,6 +171,103 @@ pub fn bottom_bar_layout(bar: Rect, count: usize) -> Vec<Rect> {
         }
         out.push(chip);
         x += CHIP_W + CHIP_GAP;
+    }
+    out
+}
+
+/// Where the card columns of the middle zone go.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CardLayout {
+    /// One rectangle per drawn card, in strip order, starting at [`first`].
+    ///
+    /// The last one is **narrower than the rest** when the zone runs out before
+    /// the card does. That clipped column is the specification's "sliver of the
+    /// neighbouring card": it is not a separate thing to draw, it is what a card
+    /// that does not fit looks like.
+    ///
+    /// [`first`]: CardLayout::first
+    pub cards: Vec<Rect>,
+    /// Index into the tab strip of the first drawn card.
+    pub first: usize,
+}
+
+/// Lay the middle zone out as card columns, as many as the output has room for.
+///
+/// A card is a **column of fixed width** running the full height of the zone,
+/// not a page that fills the screen one at a time (D-046). How many are visible
+/// therefore follows from the width of the output — seven on a 1920 monitor, two
+/// and a sliver on a phone held sideways, one on a phone held upright — while a
+/// single card stays the same size everywhere. That is the property worth
+/// keeping: a card is one object, not one object per form factor.
+///
+/// `first` is **derived from `active`, never stored**. Scrolling the strip has
+/// exactly one cause — the focused card has to be on screen — so keeping it as
+/// state would be keeping a second answer to a question that already has one,
+/// and `Super+←/→` (D-007) would have to remember to update it.
+///
+/// Lives in core, like [`bottom_bar_layout`] and [`top_bar_layout`], because a
+/// click has to land on the card that was drawn (D-016).
+pub fn card_columns(area: Rect, m: &Metrics, count: usize, active: usize) -> CardLayout {
+    if count == 0 || area.w() <= 0 || area.h() <= 0 {
+        return CardLayout::default();
+    }
+    // An output narrower than one card gets one card as wide as the output,
+    // rather than a column hanging off the edge.
+    let width = m.card_width.min(area.w());
+    let step = width + m.card_gap;
+
+    // How many fit whole. At least one, or a very narrow zone would show none
+    // and the shell would look broken rather than cramped.
+    let visible = ((area.w() + m.card_gap) / step).max(1) as usize;
+    let first = (active + 1).saturating_sub(visible);
+
+    let mut cards = Vec::new();
+    for i in first..count {
+        let x = area.x() + (i - first) as i32 * step;
+        if x >= area.right() {
+            break;
+        }
+        // Clipping here rather than in the painter keeps the rectangle honest:
+        // whatever reads this layout — renderer or hit test — sees the same
+        // card, and neither has to know that the last one is special.
+        let w = width.min(area.right() - x);
+        cards.push(Rect::new(x, area.y(), w, area.h()));
+    }
+    CardLayout { cards, first }
+}
+
+/// Place the tiles inside one card column.
+///
+/// The number of columns is **not configured**: it follows from the width left
+/// after the padding, the same way [`bottom_bar_layout`] and
+/// [`crate::layout::tile_limit`] derive their counts from the room available.
+/// With the default metrics that comes to two — but nothing in the code says
+/// "two", so narrowing a card in the theme produces one column instead of a
+/// contradiction between two numbers that were both meant to be true.
+///
+/// Tiles that would fall below the card are dropped, not shrunk.
+pub fn layout_tiles(card: Rect, m: &Metrics, count: usize) -> Vec<Rect> {
+    let inner_w = card.w() - 2 * m.card_pad;
+    let bottom = card.bottom() - m.card_pad;
+    if inner_w < m.tile_unit || card.h() <= 0 {
+        return Vec::new();
+    }
+    let cols = ((inner_w + m.tile_gap) / (m.tile_unit + m.tile_gap)).max(1);
+    let x0 = card.x() + m.card_pad;
+    let y0 = card.y() + m.card_header + m.card_pad;
+
+    let mut out = Vec::new();
+    for n in 0..count as i32 {
+        let tile = Rect::new(
+            x0 + (n % cols) * (m.tile_unit + m.tile_gap),
+            y0 + (n / cols) * (m.tile_unit + m.tile_gap),
+            m.tile_unit,
+            m.tile_unit,
+        );
+        if tile.bottom() > bottom {
+            break;
+        }
+        out.push(tile);
     }
     out
 }
@@ -499,5 +597,122 @@ mod tests {
         assert!(menu_icon(Rect::new(0, 0, 12, 48)).is_none());
         assert!(menu_icon(Rect::new(0, 0, 132, 8)).is_none());
         assert!(menu_icon(Rect::new(0, 0, 0, 0)).is_none());
+    }
+
+    /// The application zone of each output, as `zones` cuts it with default bars.
+    fn apps(w: i32, h: i32) -> Rect {
+        zones(Rect::new(0, 0, w, h), BarHeights::default()).apps
+    }
+
+    #[test]
+    fn a_monitor_shows_seven_cards_and_a_landscape_phone_two() {
+        // The number nobody configures: it falls out of the width, which is the
+        // whole point of fixing the card and deriving the count (D-046).
+        let m = Metrics::default();
+        assert_eq!(card_columns(apps(1920, 1080), &m, 7, 0).cards.len(), 7);
+        assert_eq!(card_columns(apps(780, 360), &m, 7, 0).cards.len(), 3);
+        assert_eq!(card_columns(apps(360, 780), &m, 7, 0).cards.len(), 2);
+    }
+
+    #[test]
+    fn the_card_that_does_not_fit_is_drawn_clipped_and_that_is_the_sliver() {
+        // `gostos.md` §B wants neighbouring cards partly visible. Nothing here
+        // draws a sliver: it is the last column, cut off by the zone's edge.
+        let m = Metrics::default();
+        let area = apps(780, 360);
+        let l = card_columns(area, &m, 7, 0);
+        let (full, last) = (l.cards[0], *l.cards.last().unwrap());
+        assert_eq!(full.w(), m.card_width);
+        assert!(last.w() > 0 && last.w() < m.card_width);
+        assert_eq!(last.right(), area.right());
+    }
+
+    #[test]
+    fn every_column_is_full_height_and_stays_inside_the_zone() {
+        let m = Metrics::default();
+        for (w, h) in [(1920, 1080), (780, 360), (360, 780)] {
+            let area = apps(w, h);
+            for card in card_columns(area, &m, 9, 0).cards {
+                assert_eq!((card.y(), card.h()), (area.y(), area.h()));
+                assert!(card.x() >= area.x() && card.right() <= area.right());
+            }
+        }
+    }
+
+    #[test]
+    fn the_strip_scrolls_only_far_enough_to_show_the_active_card() {
+        let m = Metrics::default();
+        let area = apps(1920, 1080);
+        // Seven fit, so the first seven need no scrolling at all.
+        for active in 0..7 {
+            assert_eq!(card_columns(area, &m, 12, active).first, 0);
+        }
+        // The eighth pushes the strip by exactly one, not to the end.
+        assert_eq!(card_columns(area, &m, 12, 7).first, 1);
+        assert_eq!(card_columns(area, &m, 12, 11).first, 5);
+        // And coming back releases it again — `first` is derived, not remembered.
+        assert_eq!(card_columns(area, &m, 12, 0).first, 0);
+    }
+
+    #[test]
+    fn an_output_narrower_than_a_card_gets_one_card_as_wide_as_it_is() {
+        let m = Metrics::default();
+        let area = Rect::new(0, 0, 140, 400);
+        let l = card_columns(area, &m, 5, 0);
+        assert_eq!(l.cards.len(), 1);
+        assert_eq!(l.cards[0].w(), 140);
+    }
+
+    #[test]
+    fn no_cards_and_no_room_produce_nothing_rather_than_a_panic() {
+        let m = Metrics::default();
+        assert!(card_columns(apps(1920, 1080), &m, 0, 0).cards.is_empty());
+        assert!(card_columns(Rect::new(0, 0, 0, 0), &m, 4, 0)
+            .cards
+            .is_empty());
+        assert!(card_columns(Rect::new(0, 0, 800, -10), &m, 4, 0)
+            .cards
+            .is_empty());
+    }
+
+    #[test]
+    fn tile_columns_follow_from_the_width_and_are_never_written_down() {
+        let m = Metrics::default();
+        let card = card_columns(apps(1920, 1080), &m, 3, 0).cards[0];
+        let tiles = layout_tiles(card, &m, 6);
+        // Two columns with the default metrics: the tiles come in pairs by row.
+        assert_eq!(tiles[0].y(), tiles[1].y());
+        assert_ne!(tiles[1].y(), tiles[2].y());
+        assert_eq!(tiles[0].x(), tiles[2].x());
+
+        // Narrow the card and the second column goes, rather than overflowing.
+        let narrow = Metrics {
+            card_width: 140,
+            ..m
+        };
+        let card = card_columns(apps(1920, 1080), &narrow, 3, 0).cards[0];
+        let tiles = layout_tiles(card, &narrow, 4);
+        assert!(tiles.windows(2).all(|p| p[0].x() == p[1].x()));
+    }
+
+    #[test]
+    fn tiles_stay_inside_their_card_and_run_out_rather_than_overflow() {
+        let m = Metrics::default();
+        for (w, h) in [(1920, 1080), (780, 360), (360, 780)] {
+            let card = card_columns(apps(w, h), &m, 3, 0).cards[0];
+            let tiles = layout_tiles(card, &m, 64);
+            assert!(tiles.len() < 64, "64 tiles cannot fit any of these cards");
+            for t in tiles {
+                assert!(t.x() >= card.x() && t.right() <= card.right());
+                assert!(t.y() >= card.y() + m.card_header && t.bottom() <= card.bottom());
+            }
+        }
+    }
+
+    #[test]
+    fn a_sliver_too_narrow_for_a_tile_gets_none_rather_than_a_broken_one() {
+        let m = Metrics::default();
+        let sliver = Rect::new(0, 0, m.tile_unit + m.card_pad, 600);
+        assert!(layout_tiles(sliver, &m, 4).is_empty());
     }
 }

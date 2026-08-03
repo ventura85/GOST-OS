@@ -30,7 +30,9 @@
 //! in this module tempts anyone to make touch a renamed pointer (D-020).
 
 use crate::geometry::Point;
-use crate::shell::{bottom_bar_layout, top_bar_layout, Zones};
+use crate::shell::{bottom_bar_layout, card_columns, layout_tiles, top_bar_layout, Zones};
+use crate::tab::TabStrip;
+use crate::theme::Metrics;
 use crate::window::{Placed, WindowId};
 
 /// Keyboard modifiers held down when a key was pressed.
@@ -224,7 +226,18 @@ pub enum Hit {
         window: WindowId,
         local: Point,
     },
-    /// The application zone with no window on it: the tab slider (M3).
+    /// A card column of the middle zone, by its index **in the tab strip** —
+    /// not its position on screen, so the answer survives scrolling and is the
+    /// index [`TabStrip::set_active`](crate::tab::TabStrip::set_active) wants.
+    Card(usize),
+    /// A tile inside a card. `card` indexes the strip, `tile` indexes that
+    /// card's [`items`](crate::tab::Tab::items).
+    CardTile {
+        card: usize,
+        tile: usize,
+    },
+    /// The application zone with nothing on it: past the last card, or the gap
+    /// between two of them.
     Desktop,
     /// The chip of the `n`-th window in bottom-bar order, i.e. an index into
     /// [`WindowModel::bar`](crate::window::WindowModel::bar).
@@ -243,8 +256,20 @@ pub enum Hit {
 /// the bar drops the ones that do not fit (see [`bottom_bar_layout`]), and a
 /// chip that was not drawn cannot be clicked.
 ///
+/// `tabs` and `metrics` are here so the middle zone can be answered for with the
+/// **same arithmetic that drew it** ([`card_columns`], [`layout_tiles`]). A card
+/// scrolled off the strip cannot be clicked for the same reason a chip that did
+/// not fit cannot be: it was never on screen.
+///
 /// [`WindowModel::layout`]: crate::window::WindowModel::layout
-pub fn hit_test(zones: &Zones, placed: &[Placed], chips: usize, point: Point) -> Hit {
+pub fn hit_test(
+    zones: &Zones,
+    placed: &[Placed],
+    chips: usize,
+    tabs: &TabStrip,
+    metrics: &Metrics,
+    point: Point,
+) -> Hit {
     if zones.top_bar.contains(point) {
         let l = top_bar_layout(zones.top_bar);
         for (rect, item) in [
@@ -280,6 +305,25 @@ pub fn hit_test(zones: &Zones, placed: &[Placed], chips: usize, point: Point) ->
             };
         }
     }
+
+    // Nothing covers the middle zone, so the cards are what is under the point.
+    let layout = card_columns(zones.apps, metrics, tabs.len(), tabs.active_index());
+    for (n, card) in layout.cards.iter().enumerate() {
+        if !card.contains(point) {
+            continue;
+        }
+        let index = layout.first + n;
+        let items = tabs.iter().nth(index).map_or(0, |t| t.items.len());
+        for (t, tile) in layout_tiles(*card, metrics, items).iter().enumerate() {
+            if tile.contains(point) {
+                return Hit::CardTile {
+                    card: index,
+                    tile: t,
+                };
+            }
+        }
+        return Hit::Card(index);
+    }
     Hit::Desktop
 }
 
@@ -296,6 +340,38 @@ mod tests {
 
     fn monitor() -> Zones {
         zones(MONITOR, BarHeights::default())
+    }
+
+    /// [`hit_test`] for the cases that are about bars and windows.
+    ///
+    /// An empty strip means the middle zone has no cards on it, so those tests
+    /// keep asking exactly what they asked before the cards arrived, and
+    /// [`Hit::Desktop`] still means "nothing here".
+    fn hit(z: &Zones, placed: &[Placed], chips: usize, point: Point) -> Hit {
+        hit_test(
+            z,
+            placed,
+            chips,
+            &TabStrip::new(),
+            &Metrics::default(),
+            point,
+        )
+    }
+
+    /// A strip of `cards` cards, each with `items` shortcuts, the first active.
+    fn strip(cards: usize, items: usize) -> TabStrip {
+        let mut s = TabStrip::new();
+        for c in 0..cards {
+            let id = s.add(format!("Karta {c}"));
+            let tab = s.get_mut(id).expect("just added");
+            for i in 0..items {
+                tab.items.push(crate::tab::LauncherItem::new(
+                    format!("app{i}"),
+                    format!("App {i}"),
+                ));
+            }
+        }
+        s
     }
 
     /// Two tiled windows on one output, laid out exactly as the compositor lays
@@ -324,7 +400,7 @@ mod tests {
         assert_eq!(first.placement, Placement::Tiled);
         let p = Point::new(first.rect.x() + 7, first.rect.y() + 9);
         assert_eq!(
-            hit_test(&monitor(), &placed, 2, p),
+            hit(&monitor(), &placed, 2, p),
             Hit::Window {
                 window: first.window,
                 local: Point::new(7, 9),
@@ -339,7 +415,7 @@ mod tests {
         let (_, _, placed) = two_windows();
         let gap_x = (placed[0].rect.right() + placed[1].rect.x()) / 2;
         let p = Point::new(gap_x, placed[0].rect.y() + 10);
-        assert_eq!(hit_test(&monitor(), &placed, 2, p), Hit::Desktop);
+        assert_eq!(hit(&monitor(), &placed, 2, p), Hit::Desktop);
     }
 
     #[test]
@@ -352,8 +428,8 @@ mod tests {
             rect: Rect::from_size(Size::new(1920, 1080)),
             placement: Placement::Floating,
         }];
-        let top = hit_test(&z, &full, 0, Point::new(900, 4));
-        let bottom = hit_test(&z, &full, 0, Point::new(900, z.bottom_bar.y() + 4));
+        let top = hit(&z, &full, 0, Point::new(900, 4));
+        let bottom = hit(&z, &full, 0, Point::new(900, z.bottom_bar.y() + 4));
         assert!(matches!(top, Hit::TopBar(_)), "{top:?}");
         assert_eq!(bottom, Hit::BottomBar);
     }
@@ -364,11 +440,11 @@ mod tests {
         let chips = crate::shell::bottom_bar_layout(z.bottom_bar, 3);
         for (i, chip) in chips.iter().enumerate() {
             let p = Point::new(chip.x() + 2, chip.y() + 2);
-            assert_eq!(hit_test(&z, &[], 3, p), Hit::Chip(i));
+            assert_eq!(hit(&z, &[], 3, p), Hit::Chip(i));
         }
         // Past the last chip is the bar, not the last chip stretched to the edge.
         let past = Point::new(z.bottom_bar.right() - 6, z.bottom_bar.y() + 24);
-        assert_eq!(hit_test(&z, &[], 3, past), Hit::BottomBar);
+        assert_eq!(hit(&z, &[], 3, past), Hit::BottomBar);
     }
 
     #[test]
@@ -381,7 +457,7 @@ mod tests {
         let drawn = crate::shell::bottom_bar_layout(z.bottom_bar, 6).len();
         let mut hits = Vec::new();
         for x in z.bottom_bar.x()..z.bottom_bar.right() {
-            if let Hit::Chip(i) = hit_test(&z, &[], 6, Point::new(x, z.bottom_bar.y() + 24)) {
+            if let Hit::Chip(i) = hit(&z, &[], 6, Point::new(x, z.bottom_bar.y() + 24)) {
                 if !hits.contains(&i) {
                     hits.push(i);
                 }
@@ -418,7 +494,7 @@ mod tests {
             .expect("the dialog is placed");
         let centre = Point::new(d.rect.x() + d.rect.w() / 2, d.rect.y() + d.rect.h() / 2);
         assert!(
-            matches!(hit_test(&monitor(), &placed, 2, centre), Hit::Window { window, .. } if window == dialog)
+            matches!(hit(&monitor(), &placed, 2, centre), Hit::Window { window, .. } if window == dialog)
         );
     }
 
@@ -428,13 +504,13 @@ mod tests {
         let l = top_bar_layout(z.top_bar);
         let menu = l.menu.expect("the menu is never dropped");
         assert_eq!(
-            hit_test(&z, &[], 0, Point::new(menu.x() + 1, menu.y() + 1)),
+            hit(&z, &[], 0, Point::new(menu.x() + 1, menu.y() + 1)),
             Hit::TopBar(TopBarItem::Menu)
         );
         // Between the menu and whatever is next: still the bar's, still not a
         // window's.
         assert_eq!(
-            hit_test(&z, &[], 0, Point::new(menu.right() + 2, menu.y() + 1)),
+            hit(&z, &[], 0, Point::new(menu.right() + 2, menu.y() + 1)),
             Hit::TopBar(TopBarItem::Empty)
         );
     }
@@ -486,5 +562,76 @@ mod tests {
         assert!(!m.contains(Mods::CTRL) && !m.contains(Mods::ALT));
         assert_eq!(m, Mods::SHIFT | Mods::LOGO);
         assert!(Mods::from_flags(false, false, false, false).is_empty());
+    }
+
+    #[test]
+    fn a_click_lands_on_the_card_that_was_drawn() {
+        let (z, m, tabs) = (monitor(), Metrics::default(), strip(5, 0));
+        let cards = card_columns(z.apps, &m, 5, 0).cards;
+        for (i, card) in cards.iter().enumerate() {
+            let p = Point::new(card.x() + 2, card.bottom() - 2);
+            assert_eq!(hit_test(&z, &[], 0, &tabs, &m, p), Hit::Card(i));
+        }
+    }
+
+    #[test]
+    fn a_click_on_a_tile_names_the_tile_and_a_click_beside_it_does_not() {
+        let (z, m, tabs) = (monitor(), Metrics::default(), strip(3, 4));
+        let card = card_columns(z.apps, &m, 3, 0).cards[1];
+        let tiles = layout_tiles(card, &m, 4);
+
+        let centre = |r: Rect| Point::new(r.x() + r.w() / 2, r.y() + r.h() / 2);
+        assert_eq!(
+            hit_test(&z, &[], 0, &tabs, &m, centre(tiles[2])),
+            Hit::CardTile { card: 1, tile: 2 }
+        );
+        // Below the last tile is still the card — the empty space belongs to it
+        // and must not read as the shortcut above it.
+        let below = Point::new(card.x() + card.w() / 2, card.bottom() - 2);
+        assert_eq!(hit_test(&z, &[], 0, &tabs, &m, below), Hit::Card(1));
+    }
+
+    #[test]
+    fn the_clipped_card_is_clickable_and_answers_with_its_strip_index() {
+        // A landscape phone: two cards and a sliver of the third (D-046).
+        let z = zones(Rect::new(0, 0, 780, 360), BarHeights::default());
+        let (m, tabs) = (Metrics::default(), strip(6, 0));
+        let cards = card_columns(z.apps, &m, 6, 0).cards;
+        let sliver = *cards.last().expect("three columns on this output");
+        let p = Point::new(sliver.right() - 1, sliver.y() + 1);
+        assert_eq!(
+            hit_test(&z, &[], 0, &tabs, &m, p),
+            Hit::Card(cards.len() - 1)
+        );
+    }
+
+    #[test]
+    fn a_card_scrolled_off_the_strip_cannot_be_clicked() {
+        // The same rule the bottom bar already follows: what was not drawn
+        // cannot be hit. With card 11 active the strip starts at 5, so the
+        // leftmost column is card 5 and cards 0..5 are unreachable.
+        let (z, m) = (monitor(), Metrics::default());
+        let mut tabs = strip(12, 0);
+        let last = tabs.iter().last().expect("twelve cards").id;
+        assert!(tabs.set_active(last));
+
+        let l = card_columns(z.apps, &m, 12, tabs.active_index());
+        assert_eq!(l.first, 5);
+        let p = Point::new(l.cards[0].x() + 2, l.cards[0].y() + 2);
+        assert_eq!(hit_test(&z, &[], 0, &tabs, &m, p), Hit::Card(5));
+    }
+
+    #[test]
+    fn a_window_still_wins_over_the_cards_under_it() {
+        // Z-order is one list (paint.rs) and the hit test has to read it the
+        // same way round: windows sit on the cards, not beside them.
+        let (m, tabs) = (Metrics::default(), strip(5, 4));
+        let (_, _, placed) = two_windows();
+        let r = placed[0].rect;
+        let p = Point::new(r.x() + r.w() / 2, r.y() + r.h() / 2);
+        assert!(matches!(
+            hit_test(&monitor(), &placed, 2, &tabs, &m, p),
+            Hit::Window { window, .. } if window == placed[0].window
+        ));
     }
 }

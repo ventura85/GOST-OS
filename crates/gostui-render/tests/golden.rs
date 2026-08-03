@@ -47,6 +47,7 @@
 use std::path::{Path, PathBuf};
 
 use gostui_core::shell::zones;
+use gostui_core::tab::LauncherItem;
 use gostui_core::theme::Theme;
 use gostui_core::{Rect, TabStrip};
 use gostui_render::{paint, Canvas, ShellView, TextRenderer};
@@ -60,6 +61,10 @@ struct Scene {
     tabs: &'static [&'static str],
     /// Index of the active tab, applied by cycling from the first.
     active: usize,
+    /// Shortcuts given to every card. Without these the cards draw empty and
+    /// the tile grid — the largest piece of new geometry in the middle zone —
+    /// would have no pixel covering it at all.
+    items: usize,
     windows: &'static [&'static str],
     focused_window: Option<usize>,
 }
@@ -67,16 +72,42 @@ struct Scene {
 /// The scenes, chosen so that each one can fail on its own for its own reason.
 fn scenes() -> Vec<Scene> {
     vec![
-        // The everyday case, and the only one at scale 1: if the tile board or
-        // the bars move, this is what says so.
+        // The everyday case, and the only one at scale 1: if the cards or the
+        // bars move, this is what says so.
         Scene {
             name: "monitor",
             size: (1920, 1080),
             scale: 1,
             tabs: &["Pliki", "Praca", "Rozrywka"],
             active: 1,
+            items: 5,
             windows: &["Terminal", "Firefox"],
             focused_window: Some(0),
+        },
+        // More cards than the output has room for: the last column comes out
+        // clipped, and that clipped column is the specification's sliver of the
+        // neighbouring card (D-046). Active is past the visible run, so the
+        // strip has to have scrolled — if `first` ever stops being derived from
+        // the active card, this picture says so.
+        Scene {
+            name: "monitor-przewiniety",
+            size: (1920, 1080),
+            scale: 1,
+            tabs: &[
+                "Pliki",
+                "Praca",
+                "Rozrywka",
+                "Internet",
+                "Ustawienia",
+                "Kod",
+                "Muzyka",
+                "Sieć",
+                "Dyski",
+            ],
+            active: 8,
+            items: 3,
+            windows: &[],
+            focused_window: None,
         },
         // A phone in portrait at scale 2. Guards two things at once: that the
         // layout is computed in logical units and multiplied at rasterisation
@@ -87,6 +118,7 @@ fn scenes() -> Vec<Scene> {
             scale: 2,
             tabs: &["Pliki", "Praca"],
             active: 0,
+            items: 4,
             windows: &["Terminal"],
             focused_window: Some(0),
         },
@@ -99,6 +131,7 @@ fn scenes() -> Vec<Scene> {
             scale: 1,
             tabs: &["Pliki"],
             active: 0,
+            items: 2,
             windows: &[],
             focused_window: None,
         },
@@ -110,6 +143,7 @@ fn scenes() -> Vec<Scene> {
             scale: 1,
             tabs: &[],
             active: 0,
+            items: 0,
             windows: &[],
             focused_window: None,
         },
@@ -119,7 +153,12 @@ fn scenes() -> Vec<Scene> {
 fn render(scene: &Scene) -> Canvas {
     let mut tabs = TabStrip::new();
     for name in scene.tabs {
-        tabs.add(*name);
+        let id = tabs.add(*name);
+        let tab = tabs.get_mut(id).expect("just added");
+        for i in 0..scene.items {
+            tab.items
+                .push(LauncherItem::new(format!("app{i}"), format!("App {i}")));
+        }
     }
     for _ in 0..scene.active {
         tabs.activate_next();

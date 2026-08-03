@@ -15,7 +15,7 @@
 use crate::text::{Align, Primitive, SurfaceSlot, TextRenderer, TextRun};
 use crate::{Canvas, Rgba};
 use gostui_core::geometry::Rect;
-use gostui_core::shell::Zones;
+use gostui_core::shell::{card_columns, layout_tiles, Zones};
 use gostui_core::tab::TabStrip;
 use gostui_core::theme::Theme;
 
@@ -48,18 +48,6 @@ pub struct ShellView<'a> {
     /// reaches the painter the only question left is where to put it.
     pub clock: Option<&'a str>,
 }
-
-// Sizes of the *old* card slider, deliberately still constants.
-//
-// D-032 puts every size in `Metrics`, and these are the exception that proves
-// it: they belong to the floating-card layout that D-031 replaces with a tab
-// strip and a tile board. Wiring them to the theme now would be work spent on a
-// picture that is going away. When the D-031 board is built it reads
-// `Metrics::tile_unit` and `tile_gap`, and these disappear rather than moving.
-const CARD_W: i32 = 260;
-const CARD_GAP: i32 = 24;
-const TILE: i32 = 56;
-const TILE_GAP: i32 = 16;
 
 /// One filled rectangle, in **logical** units.
 ///
@@ -96,7 +84,7 @@ pub fn display_list(view: &ShellView<'_>, theme: &Theme) -> Vec<Primitive> {
     // desktop, client windows sit on top of it, and the two bars sit on top of
     // everything. A window that could cover the bars would cover the only way
     // out of it.
-    slider(&mut out, z.apps, view.tabs, p);
+    cards(&mut out, z.apps, view.tabs, theme);
     for slot in view.surfaces.iter().filter(|s| !s.over_bars) {
         out.push(Primitive::Surface(*slot));
         focus_ring(&mut out, slot, theme);
@@ -226,47 +214,34 @@ fn top_bar(out: &mut Vec<Primitive>, bar: Rect, view: &ShellView<'_>, t: &Theme)
     }
 }
 
-fn slider(out: &mut Vec<Primitive>, area: Rect, tabs: &TabStrip, p: &Palette) {
-    let cards: Vec<_> = tabs.iter().collect();
-    if cards.is_empty() || area.h() <= 0 {
-        return;
-    }
+/// The middle zone: card columns, as many as the output has room for (D-046).
+///
+/// **Not one rectangle is positioned here.** `card_columns` and `layout_tiles`
+/// in core hand over the geometry and this function fills it in — which is the
+/// rule for the whole crate (layout is logic, drawing is not), and it is what
+/// makes a click land on the card the user can see: `hit_test` reads the same
+/// two functions.
+fn cards(out: &mut Vec<Primitive>, area: Rect, tabs: &TabStrip, theme: &Theme) {
+    let (p, m) = (&theme.palette, &theme.metrics);
+    let layout = card_columns(area, m, tabs.len(), tabs.active_index());
 
-    // Cards take a fixed share of the height rather than a fixed number of units,
-    // so they neither rattle around a 1080p screen nor overflow a phone.
-    let card_h = (area.h() * 3 / 5).clamp(200, 560);
-    let total_w = cards.len() as i32 * CARD_W + (cards.len() as i32 - 1) * CARD_GAP;
-    let mut x = area.x() + (area.w() - total_w) / 2;
-    let y = area.y() + (area.h() - card_h) / 2;
-
-    for (i, _tab) in cards.iter().enumerate() {
-        let card = Rect::new(x, y, CARD_W, card_h);
-        let active = i == tabs.active_index();
-        push(out, card, if active { p.card_active } else { p.card });
+    for (n, card) in layout.cards.iter().enumerate() {
+        let index = layout.first + n;
+        let active = index == tabs.active_index();
+        push(out, *card, if active { p.card_active } else { p.card });
         if active {
-            push_outline(out, card, 2, p.accent);
+            push_outline(out, *card, m.focus_width, p.accent);
         }
-        // Title strip of the card.
+        // The header, where the card's name goes when the middle zone gets text.
         push(
             out,
-            Rect::new(card.x() + 20, card.y() + 20, CARD_W - 40, 20),
+            Rect::new(card.x(), card.y(), card.w(), m.card_header),
             p.chip,
         );
-        // Launcher grid, three columns (D-008).
-        for (n, _) in (0..6).enumerate() {
-            let col = (n as i32) % 3;
-            let row = (n as i32) / 3;
-            let tile = Rect::new(
-                card.x() + 20 + col * (TILE + TILE_GAP),
-                card.y() + 64 + row * (TILE + TILE_GAP),
-                TILE,
-                TILE,
-            );
-            if tile.bottom() <= card.bottom() - 20 {
-                push(out, tile, p.tile);
-            }
+        let items = tabs.iter().nth(index).map_or(0, |t| t.items.len());
+        for tile in layout_tiles(*card, m, items) {
+            push(out, tile, p.tile);
         }
-        x += CARD_W + CARD_GAP;
     }
 }
 
