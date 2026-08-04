@@ -108,10 +108,16 @@ chodzący po każdym punkcie każdej kolumny. **Trafienia sprawdzaj klikaniem, n
 testy potwierdzały zgodność `paint`/`hit_test` przez cały czas i nie zauważyły niczego, bo
 zgodność była prawdziwa. Zła była decyzja, nie arytmetyka.
 
+**Pasek chodzi z klawiatury (D-007, 2026-08-04).** `Super+←/→` przesuwa slider o jedną kolumnę,
+niezależnie od okien — karty i okna są rozłączne (D-003), więc fokus okna zostaje tam, gdzie był.
+Na końcach pasek **nie zawija się i nie rysuje klatki**: bez tego przytrzymana strzałka jest pętlą
+renderującą. Gołych strzałek nie ma i mają nie wejść, dopóki „slider ma fokus" nie stanie się
+prawdziwym stanem — pilnuje tego asercja, nie zdanie. W trybie zagnieżdżonym skrót łapie `xfwm4`,
+więc do testu potrzebny jest `scripts/xfce-zwolnij-skroty.sh`.
+
 Co ze slidera zostaje: **D-033 (kafel żywy)** i **D-030** — przeczytać przed kodem; ikony
 funkcyjne w nagłówku karty, resize przeciąganiem krawędzi, tryb edycji, ikony i podpisy
-na kaflach, `Super+←/→` z D-007. **D-007, D-008 i D-009** realizuj, zaznaczając jawnie,
-że bierzesz rekomendację z rejestru.
+na kaflach. **D-008 i D-009** realizuj, zaznaczając jawnie, że bierzesz rekomendację z rejestru.
 
 **Trzy rzeczy zostały świadomie niezrobione i nie są zapomniane:** `linux-dmabuf` nie jest
 ogłaszany w ogóle, damage obejmuje całe okno zamiast uszkodzonych regionów (D-027), a budżet
