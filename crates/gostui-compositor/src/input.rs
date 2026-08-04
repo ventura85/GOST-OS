@@ -236,7 +236,7 @@ impl State {
             self.tabs.activate_prev()
         };
         if moved {
-            self.request_redraw();
+            self.request_redraw(Cause::Input);
         }
     }
 
@@ -476,7 +476,7 @@ impl State {
                     return;
                 };
                 if self.tabs.set_active(id) {
-                    self.request_redraw();
+                    self.request_redraw(Cause::Input);
                 }
             }
             // The Start Menu (M3), the empty space beside the cards, and the
