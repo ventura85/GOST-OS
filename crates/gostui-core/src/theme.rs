@@ -366,6 +366,20 @@ impl Fonts {
     /// Smallest font size that is still text rather than a smudge.
     pub const MIN_SIZE: i32 = 6;
 
+    /// How tall one line of text at `size` needs its box to be.
+    ///
+    /// Layout has to reserve the room before anything is shaped — the caption
+    /// strip of a tile is decided in core, where no font exists (D-016) — so the
+    /// factor lives here rather than being asked of the rasteriser. It matches
+    /// the line height the text stack uses, rounded up: a box shorter than the
+    /// line would centre the glyphs and let them stick out top and bottom.
+    pub const fn line_height(size: i32) -> i32 {
+        if size <= 0 {
+            return 0;
+        }
+        (size * 3 + 1) / 2
+    }
+
     pub fn sanitised(self) -> (Self, Vec<Adjustment>) {
         let mut out = self;
         let mut log = Vec::new();
