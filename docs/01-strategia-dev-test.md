@@ -230,6 +230,15 @@ zaburzający to, co mierzy. Zamiast tego:
 Powód klatki jest tu ważniejszy od samego licznika: „47 klatek" to liczba, a „47 klatek, wszystkie
 `redraw`" nazywa błąd.
 
+**Powód musi być prawdziwy, a przez trzy dni nie był (naprawione 2026-08-04).** `request_redraw`
+ustawiał samą flagę, a pętla rysowała bezwarunkowo z `Cause::Client` — więc **każda** klatka
+zamówiona przez powłokę (klik w kartę, skrót klawiszowy) meldowała się jako klatka od klienta.
+Prawdę mówiły tylko ścieżki wołające `draw` wprost: zegar i zmiana fokusu. Wykryte na żywej
+powłoce: sesja, w której nie było ani jednego klienta, zaraportowała `client 61`. Dziś
+`request_redraw` przyjmuje powód, a etykietę zatrzymuje **pierwszy proszący w danym przebiegu
+pętli** — to on nas obudził. Pomiary z 2026-08-01 zostają w mocy (tamte klatki naprawdę były
+od klienta), ale **rozbicie na powody z tamtych przebiegów nie jest dowodem na nic**.
+
 **Kryterium jako komenda, nie jak oglądanie.** `--idle-test <sekundy>` trzyma okno zadany czas
 i kończy się **kodem wyjścia**:
 
