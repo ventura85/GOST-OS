@@ -100,12 +100,20 @@ pub(crate) struct State {
     /// even if it slides off — a finger dragging a scrollbar off the edge of a
     /// window must keep dragging that scrollbar.
     pub(crate) touch_focus: Option<crate::input::TouchGrab>,
-    /// Something changed and the screen no longer matches the state.
+    /// Something changed and the screen no longer matches the state — and
+    /// **what** changed it.
     ///
     /// Handlers set this instead of drawing: a client can commit several times
     /// in one dispatch cycle, and drawing inside the handler would turn one
-    /// state change into three frames. The flag is consumed once per loop pass.
-    dirty: bool,
+    /// state change into three frames. Consumed once per loop pass.
+    ///
+    /// It carries the cause rather than a bare flag because `GOSTUI_STATS` is the
+    /// instrument for zero rendering at rest (D-027), and an instrument that
+    /// labels every frame `client` cannot answer the one question it is for:
+    /// which frames had a cause outside the shell. The **first** asker of a pass
+    /// keeps the label — it is the one that woke us; whoever piles on afterwards
+    /// is riding a frame that was going to happen anyway.
+    pending: Option<Cause>,
     /// The font system and glyph cache. One per process: it holds the whole
     /// font database, and a second copy would double the largest single cost
     /// text adds to the budget (D-029).
@@ -222,7 +230,7 @@ pub fn run(
         keymap: gostui_core::Keymap::default(),
         pointer_location: (0.0, 0.0).into(),
         touch_focus: None,
-        dirty: false,
+        pending: None,
         text: TextRenderer::new(),
         clock: now,
         clock_text: gostui_core::clock::format(now, gostui_core::ClockFormat::H24),
@@ -349,8 +357,8 @@ pub fn run(
         // This is where a state change becomes at most one frame, no matter how
         // many commits produced it — and where clients get their answers.
         event_loop.run(None, &mut state, |state| {
-            if std::mem::take(&mut state.dirty) {
-                state.draw(Cause::Client);
+            if let Some(cause) = state.pending.take() {
+                state.draw(cause);
             }
             if let Err(e) = state.wayland.display.flush_clients() {
                 tracing::warn!("nie udało się wysłać zdarzeń do klientów: {e}");
@@ -446,13 +454,18 @@ impl State {
         self.draw(Cause::Clock);
     }
 
-    /// Ask for one frame at the end of this loop pass.
+    /// Ask for one frame at the end of this loop pass, and say why.
     ///
     /// Never draws on the spot. Three commits from one client in one dispatch
     /// cycle are one change to look at, and turning them into three frames would
     /// break the rule the whole `Stats` module exists to police.
-    pub(crate) fn request_redraw(&mut self) {
-        self.dirty = true;
+    ///
+    /// The cause is not decoration: it is what the statistics report, and what a
+    /// reader uses to tell a frame the shell caused from a frame a client asked
+    /// for. Pass the one that is true at the call site — `Cause::Client` from a
+    /// protocol handler, `Cause::Input` from a key or a press.
+    pub(crate) fn request_redraw(&mut self, cause: Cause) {
+        self.pending.get_or_insert(cause);
     }
 
     /// The nested window's size in logical units.

@@ -15,6 +15,7 @@
 //! trait and these impls follow it; nothing about the protocol side changes.
 
 use crate::backend::winit::State;
+use crate::stats::Cause;
 use crate::wayland::ClientState;
 use smithay::backend::renderer::utils::on_commit_buffer_handler;
 use smithay::input::pointer::{CursorImageStatus, PointerHandle};
@@ -82,7 +83,7 @@ impl CompositorHandler for State {
         // so they are re-read on commit rather than trusted from map time.
         self.wayland.refresh_metadata(&mut self.windows, window);
         self.sync_layout();
-        self.request_redraw();
+        self.request_redraw(Cause::Client);
     }
 }
 
@@ -227,7 +228,7 @@ impl XdgShellHandler for State {
         // No configure yet: the protocol wants it in answer to the client's
         // first commit, and `commit` sends it through `sync_layout`. Configuring
         // here would be a size sent before the client asked to exist.
-        self.request_redraw();
+        self.request_redraw(Cause::Client);
     }
 
     fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
@@ -238,7 +239,7 @@ impl XdgShellHandler for State {
         // The tile the window held is filled by whatever was waiting, so the
         // remaining windows have to be told their new size.
         self.sync_layout();
-        self.request_redraw();
+        self.request_redraw(Cause::Client);
     }
 
     fn new_popup(&mut self, surface: PopupSurface, positioner: PositionerState) {
@@ -258,7 +259,7 @@ impl XdgShellHandler for State {
             // gets the protocol error, we keep running.
             tracing::debug!("popup configure refused: {e}");
         }
-        self.request_redraw();
+        self.request_redraw(Cause::Client);
     }
 
     fn popup_destroyed(&mut self, surface: PopupSurface) {
@@ -266,7 +267,7 @@ impl XdgShellHandler for State {
             .wayland
             .unmap_popup(&mut self.windows, surface.wl_surface());
         tracing::debug!(count = gone.len(), "popup destroyed");
-        self.request_redraw();
+        self.request_redraw(Cause::Client);
     }
 
     fn grab(&mut self, _surface: PopupSurface, _seat: WlSeat, _serial: Serial) {
@@ -290,7 +291,7 @@ impl XdgShellHandler for State {
                 .position_popup(&mut self.windows, window, positioner, parent);
         }
         surface.send_repositioned(token);
-        self.request_redraw();
+        self.request_redraw(Cause::Client);
     }
 
     fn title_changed(&mut self, surface: ToplevelSurface) {
@@ -298,7 +299,7 @@ impl XdgShellHandler for State {
             self.wayland.refresh_metadata(&mut self.windows, window);
             // The bottom bar shows titles, so a rename is a reason to draw —
             // and the only reason. Nothing else on screen changed.
-            self.request_redraw();
+            self.request_redraw(Cause::Client);
         }
     }
 
@@ -318,7 +319,7 @@ impl XdgShellHandler for State {
                 w.fullscreen = true;
             }
             self.sync_layout();
-            self.request_redraw();
+            self.request_redraw(Cause::Client);
         }
     }
 
@@ -328,7 +329,7 @@ impl XdgShellHandler for State {
                 w.fullscreen = false;
             }
             self.sync_layout();
-            self.request_redraw();
+            self.request_redraw(Cause::Client);
         }
     }
 
