@@ -749,7 +749,7 @@ równoległa paleta. **Obraz sprawdzony: PNG-i przed i po są identyczne co do b
 **Odniesienie:** D-005, D-011, D-016, D-020, D-030, D-031
 
 ## D-033 — Kafel żywy: dane na kaflu, odświeżanie wyłącznie na zdarzenie
-**Status:** OTWARTA (rekomendacja: przyjąć)
+**Status:** ✅ **PRZYJĘTA** (2026-08-04), **wdrożona w części** — patrz „Stan wdrożenia" niżej
 **Kontekst:** Klasyczny pulpit jest śmietnikiem, bo jest katalogiem: rzeczy trafiają tam, bo muszą
 gdzieś trafić, i nic o sobie nie mówią — ikona `raport.odt` wygląda tak samo w dniu utworzenia
 i trzy lata później. Siatka identycznych skrótów odtwarza ten problem (patrz D-031, wariant A).
@@ -771,7 +771,28 @@ które ma teraz dwa uzasadnienia (bateria telefonu **i** stary procesor, D-027).
 **Granica warstw (D-016):** źródło danych kafla to **logika, nie rysowanie**. Trafia do
 `gostui-core` za traitem, testowalnym z atrapą źródła przez `cargo test`. Gdyby wylądowało
 w rasteryzerze, mielibyśmy `inotify` w renderze — dokładnie ten błąd, przed którym D-016 chroni.
-**Odniesienie:** D-016, D-021, D-027, `gostos.md` §B
+
+### Stan wdrożenia (2026-08-04)
+
+**Weszło: podpis kafla martwego.** Nazwa siedzi wewnątrz kafla, przy dolnej krawędzi; kwadrat
+ikony liczony wokół tego, co zostało (`shell::tile_face`). Kafel za mały na jedno i drugie
+zachowuje znak, gubi nazwę. Tekst szerszy niż jego obszar jest skracany wielokropkiem, a
+szerokość weszła do klucza cache'u tekstu.
+
+**Nie weszło i w jakiej kolejności ma wejść:**
+1. **Ikona kafla martwego** — wyszukiwanie zgodne z freedesktop Icon Theme Spec, rendering SVG,
+   cache per rozmiar. To **nowa zależność**, więc przed kodem osobny wpis w tym rejestrze:
+   który rasteryzer SVG, jaki limit cache'u i jaki test go pilnuje (D-039).
+2. **Rozmiary kafla na siatce** (1×1, 2×1, 1×2, 2×2) wybierane przez użytkownika — dziś każdy
+   kafel to jedna komórka.
+3. **Kafel żywy**: źródło za traitem w core, atrapa w testach, subskrypcja **tylko dla kafli
+   widocznych**, odświeżanie wyłącznie na zdarzenie. Wzorcem jest zegar i
+   `Wall::until_next_minute` — nigdy pętla pytająca.
+
+**Uwaga na przyszłość, wyniesiona z kroku 1:** wszystko, co dokłada tekst do środkowej strefy,
+odbiera się złotym obrazom **danymi sceny** (skrót bez nazwy, `clock: None`), nigdy flagą
+zmieniającą rysowanie. Flaga sprawiłaby, że obrazy pilnują wyglądu, którego nikt nie widzi.
+**Odniesienie:** D-016, D-021, D-027, D-039, D-044, `gostos.md` §B
 
 ## D-034 — Debian jako podstawa systemu na PC i RPi
 **Status:** ✅ **PRZYJĘTA** (2026-08-01) — spisanie założenia, które od początku było w specyfikacji
@@ -1344,10 +1365,12 @@ już dla niego instalatora ani jądra, więc maszyny wyłącznie 32-bitowe są p
 dystrybucji, nie naszej decyzji. Patrz D-027.
 
 **Nadal otwarte, ale nie blokujące:**
-0. **D-030, D-031, D-033** (zapisane 2026-08-01) — orientacja pozioma telefonu, struktura środkowej
-   strefy, kafel żywy. Propozycje do przeczytania **przed** kodem, który je realizuje.
-   **D-032 wyszła z tej listy: przyjęta i wdrożona** (`gostui-core::theme` + `theme.toml`),
-   razem z zegarem z kroku 5, który jako pierwszy z niej korzysta.
+0. **D-030** (zapisana 2026-08-01) — orientacja pozioma telefonu. Propozycja do przeczytania
+   **przed** kodem, który ją realizuje.
+   **D-031 wyszła z tej listy: ZASTĄPIONA przez D-046** — spór o skrawki rozwiązał się sam,
+   gdy karta stała się kolumną. **D-032 wyszła jako przyjęta i wdrożona**
+   (`gostui-core::theme` + `theme.toml`). **D-033 przyjęta 2026-08-04 i wdrożona w części** —
+   podpis kafla martwego jest, ikona i kafel żywy nie; kolejność w jej wpisie.
 1. **D-004** (VFS vs. `sshfs`) — blokuje dopiero M6.
 2. **D-012** (pełny zakres protokołów Wayland) — domykane stopniowo, per milestone.
    Ostatnie domknięcie: cztery protokoły wideo z D-036.

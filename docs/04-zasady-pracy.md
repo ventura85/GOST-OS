@@ -44,9 +44,11 @@ kończącą sesję, osiągalną z dowolnego klienta (D-045).
 
 **Wygląd powłoki jest pilnowany obrazem, nie czyimś okiem (warunek D-010).**
 `crates/gostui-render/tests/golden/*.png` to pięć scen rysowanych ścieżką CPU i porównywanych
-co do piksela; zwykłe `cargo test` je uruchamia. **Żadna nie zawiera tekstu** — zegar jest
-jedynym tekstem powłoki, więc `clock: None` usuwa wszystkie glify, i dlatego te pliki wychodzą
-identycznie na tej stacji i w CI (sprawdzone). Zmieniłeś wygląd celowo:
+co do piksela; zwykłe `cargo test` je uruchamia. **Żadna nie zawiera tekstu**, i od 2026-08-04
+utrzymują to **dwie** dane sceny, nie jedna: `clock: None` **oraz** skróty z pustą nazwą (powłoka
+rysuje już podpis na każdym kaflu). Obie są danymi, nie przełącznikiem — pasek podpisu jest
+rezerwowany jak na produkcji, więc obrazy pilnują prawdziwego layoutu i wychodzą identycznie
+na tej stacji i w CI (sprawdzone). Zmieniłeś wygląd celowo:
 
 ```bash
 GOSTUI_BLESS=1 cargo test -p gostui-render --test golden   # przepisuje wzorce
@@ -56,7 +58,7 @@ Przebieg z błogosławieństwem **celowo kończy się błędem**, żeby nie dał
 z zielonym, a przy niezgodności test zapisuje `*.actual.png` obok wzorca. **Obejrzyj oba, zanim
 pobłogosławisz** — to jedyna komenda w tym repozytorium, która zamienia regresję w fakt.
 
-`cargo test --workspace` — 233 testy, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
+`cargo test --workspace` — 245 testów, bez ekranu i bez GPU. Uruchamiaj po każdej zmianie w core.
 `cargo run -p gostui-compositor -- --png ui.png` — rysuje interfejs do dwóch PNG-ów
 (monitor i telefon) z tego samego stanu, z zegarem w górnym pasku.
 `cargo run -p gostui-compositor -- --backend winit [--renderer gles2|pixman] [--frames n]` —
@@ -85,6 +87,12 @@ zamknięciu; `--idle-test <s>` zamienia kryterium w kod wyjścia. Zmierzone 2026
 od klienta); renderowanie zajmuje 0,2–0,3% czasu pracy procesu. Szczegóły i trzy pułapki
 tego pomiaru: `docs/01-strategia-dev-test.md` §3.5. **Instrumentacja sama nie może się budzić** —
 dlatego wypis jest per klatka, a nie co sekundę, jak mówił pierwotny plan.
+**Powód klatki był niewiarygodny do 2026-08-04** i warto wiedzieć dlaczego: `request_redraw`
+ustawiał samą flagę, a pętla rysowała bezwarunkowo jako `client`, więc każda klatka od kliku
+i od skrótu meldowała się jako klatka od klienta. Znalazła to sesja z 61 klatkami i zerem
+klientów. Dziś `request_redraw` przyjmuje powód, a etykietę zatrzymuje pierwszy proszący
+w danym przebiegu pętli. **Rozbicie na powody z przebiegów sprzed tej daty nie jest dowodem
+na nic** — same liczby klatek zostają w mocy.
 
 **M3: środkowa strefa stoi. Karta jest kolumną o stałej szerokości (D-046).**
 Ile kart widać, **wynika z szerokości wyjścia** i nie jest ustawieniem: 7 na monitorze 1920,
@@ -115,9 +123,28 @@ renderującą. Gołych strzałek nie ma i mają nie wejść, dopóki „slider m
 prawdziwym stanem — pilnuje tego asercja, nie zdanie. W trybie zagnieżdżonym skrót łapie `xfwm4`,
 więc do testu potrzebny jest `scripts/xfce-zwolnij-skroty.sh`.
 
-Co ze slidera zostaje: **D-033 (kafel żywy)** i **D-030** — przeczytać przed kodem; ikony
-funkcyjne w nagłówku karty, resize przeciąganiem krawędzi, tryb edycji, ikony i podpisy
-na kaflach. **D-008 i D-009** realizuj, zaznaczając jawnie, że bierzesz rekomendację z rejestru.
+**Kafel ma podpis, a tekst od tego czasu nie ucieka z pudełka (D-033 krok 1, 2026-08-04).**
+Nazwa siedzi **wewnątrz** kafla, przy dolnej krawędzi, a kwadrat ikony liczony jest wokół tego,
+co zostało (`tile_face` w core) — nazwa pod kwadratem uzależniłaby wysokość rzędu od tego, czy
+cokolwiek w rzędzie ma nazwę. Kafel za mały na jedno i drugie zachowuje znak, a gubi nazwę.
+Tekst szerszy niż jego obszar jest **skracany wielokropkiem**: `TextRun` obiecywał to
+w dokumentacji od początku, ale `place` dawał zbyt szerokiemu napisowi ujemne wyśrodkowanie
+i napis wychodził poza pudełko obiema stronami. Zegar tego nie ujawnił (160 jednostek na pięć
+znaków), pierwsza prawdziwa nazwa aplikacji ujawnia od razu. **Szerokość jest częścią klucza
+cache'u** — bez niej ta sama nazwa w wąskim i szerokim kaflu dzieli obrazek, a wygrywa ten
+szeroki, czyli ten, który się wylewa.
+
+**Złote obrazy nadal nie zawierają ani jednego glifu** i to jest teraz utrzymywane dwoma
+danymi, nie jednym: `clock: None` **oraz** skróty z pustą nazwą. To są dane sceny, nie
+przełącznik zmieniający rysowanie — pasek podpisu jest rezerwowany tak samo jak na produkcji,
+więc te pliki pilnują prawdziwego layoutu, a zostają identyczne tu i w CI. Dodając cokolwiek
+z tekstem do środkowej strefy, **odbierz to scenom danymi**, nie flagą.
+
+Co ze slidera zostaje: **D-033 krok 2 (kafel żywy)** i **D-030** — przeczytać przed kodem;
+ikony na kaflach (Icon Theme Spec + SVG + cache z limitem — nowa zależność, więc wpis
+do rejestru **przed** kodem), nazwa karty w nagłówku, ikony funkcyjne w nagłówku karty,
+resize przeciąganiem krawędzi, tryb edycji. **D-008 i D-009** realizuj, zaznaczając jawnie,
+że bierzesz rekomendację z rejestru.
 
 **Trzy rzeczy zostały świadomie niezrobione i nie są zapomniane:** `linux-dmabuf` nie jest
 ogłaszany w ogóle, damage obejmuje całe okno zamiast uszkodzonych regionów (D-027), a budżet
