@@ -144,6 +144,13 @@ struct Key {
     size_px: i32,
     colour: (u8, u8, u8, u8),
     family: String,
+    /// The width the run had to fit into, in device pixels.
+    ///
+    /// Part of the key because it changes the picture: the same caption in a
+    /// narrow tile and a wide one is "Kalkulator" in one and "Kalku…" in the
+    /// other. Leaving it out would serve whichever of the two was rasterised
+    /// first — and the wrong one is the one that overflows its tile.
+    max_w: i32,
 }
 
 /// How many rasterised strings we are willing to keep (D-039).
@@ -292,22 +299,111 @@ impl TextRenderer {
         }))
     }
 
+    /// The longest beginning of `text` that fits `max_w`, ending in an ellipsis
+    /// when anything had to go.
+    ///
+    /// # Why cutting is the shell's job and not the caller's
+    ///
+    /// A caption is a name somebody else chose — an application's, a folder's —
+    /// and the tile it goes in is 96 units wide whatever that name turns out to
+    /// be. Something has to give, and there are only three ways: shrink the font
+    /// (unreadable, and then the tiles disagree with each other), grow the tile
+    /// (the grid stops being a grid), or cut the text. Cutting is the only one
+    /// that leaves the layout the layout.
+    ///
+    /// The ellipsis is not decoration either: a name cut without one reads as a
+    /// different name, and "Dokument" is a plausible file that "Dokumenty…"
+    /// never was.
+    ///
+    /// Returns an empty string when not even the ellipsis fits. Drawing nothing
+    /// is the right answer there — a single dot in a box says less than an empty
+    /// box, and it says it while pretending to be a word.
+    fn fit(&mut self, text: &str, size_px: i32, family: &str, max_w: i32) -> String {
+        if self.measure(text, size_px, family) <= max_w {
+            return text.to_string();
+        }
+        const ELLIPSIS: char = '…';
+        if self.measure(&ELLIPSIS.to_string(), size_px, family) > max_w {
+            return String::new();
+        }
+
+        // Binary search over character boundaries: the width of a prefix grows
+        // with its length, so the longest one that fits can be found in a
+        // handful of shaping passes instead of one per character. Long names are
+        // exactly where the linear version would be slowest, and a card full of
+        // applications is the case this is for (D-027).
+        let bounds: Vec<usize> = text
+            .char_indices()
+            .map(|(i, _)| i)
+            .chain(std::iter::once(text.len()))
+            .collect();
+        let (mut lo, mut hi) = (0usize, bounds.len() - 1);
+        while lo < hi {
+            let mid = (lo + hi).div_ceil(2);
+            let mut candidate = text[..bounds[mid]].to_string();
+            candidate.push(ELLIPSIS);
+            if self.measure(&candidate, size_px, family) <= max_w {
+                lo = mid;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        let mut out = text[..bounds[lo]].to_string();
+        out.push(ELLIPSIS);
+        out
+    }
+
+    /// Shape a string and report how wide it comes out, in device pixels.
+    ///
+    /// Shaping only — no rasterising and no cache entry. A width that never
+    /// reaches the screen must not evict an image that is on it (D-039).
+    fn measure(&mut self, text: &str, size_px: i32, family: &str) -> i32 {
+        let size = size_px as f32;
+        let mut buffer = Buffer::new(&mut self.fonts, Metrics::new(size, size * 1.4));
+        buffer.set_size(None, None);
+        let family = if family.is_empty() {
+            Family::SansSerif
+        } else {
+            Family::Name(family)
+        };
+        buffer.set_text(text, &Attrs::new().family(family), Shaping::Advanced, None);
+        buffer.shape_until_scroll(&mut self.fonts, false);
+        buffer
+            .layout_runs()
+            .map(|line| line.line_w.ceil() as i32)
+            .max()
+            .unwrap_or(0)
+    }
+
     /// Shape and rasterise, hitting the cache when the same string comes back.
     fn rasterise(&mut self, run: &TextRun, scale: i32) -> Option<Arc<Image>> {
         if self.fontless || run.text.is_empty() || run.size <= 0 {
             return None;
         }
         let size_px = run.size.saturating_mul(scale);
+        let max_w = run.area.w().saturating_mul(scale);
+        if max_w <= 0 {
+            return None;
+        }
         let key = Key {
             text: run.text.clone(),
             size_px,
             colour: (run.colour.0, run.colour.1, run.colour.2, run.colour.3),
             family: run.family.clone(),
+            max_w,
         };
         self.clock += 1;
         if let Some(hit) = self.cache.get_mut(&key) {
             hit.used = self.clock;
             return Some(hit.image.clone());
+        }
+
+        // Everything below happens once per distinct string, size, colour and
+        // width; a cache hit costs the lookup above and nothing else. That is
+        // why fitting the text is allowed to shape it more than once.
+        let text = self.fit(&run.text, size_px, &run.family, max_w);
+        if text.is_empty() {
+            return None;
         }
 
         let size = size_px as f32;
@@ -322,12 +418,7 @@ impl TextRenderer {
         } else {
             Family::Name(&run.family)
         };
-        buffer.set_text(
-            &run.text,
-            &Attrs::new().family(family),
-            Shaping::Advanced,
-            None,
-        );
+        buffer.set_text(&text, &Attrs::new().family(family), Shaping::Advanced, None);
         buffer.shape_until_scroll(&mut self.fonts, false);
 
         let mut width = 0.0f32;
@@ -748,6 +839,98 @@ mod tests {
             eprintln!("no fonts installed; skipping the rasterisation tests");
         }
         t.is_fontless()
+    }
+
+    /// The one image a single run resolves to, or `None` if nothing was drawn.
+    fn image_of(t: &mut TextRenderer, r: TextRun) -> Option<Arc<Image>> {
+        t.resolve(&[Primitive::Text(r)], 1)
+            .into_iter()
+            .find_map(|p| match p {
+                Painted::Image(i) => Some(i),
+                _ => None,
+            })
+    }
+
+    #[test]
+    fn a_caption_wider_than_its_tile_is_cut_and_stays_inside_it() {
+        // The case tile captions are made of: the name belongs to an application
+        // and the tile is 96 units wide whatever that name turns out to be.
+        // Before this, `place` centred an oversized image by giving it a
+        // negative offset — the text did not stop at the tile, it grew out of
+        // both sides of it and over the neighbouring tiles.
+        let mut t = TextRenderer::new();
+        if skip_without_fonts(&t) {
+            return;
+        }
+        let box_ = Rect::new(40, 10, 96, 20);
+        let img = image_of(&mut t, run("Przeglądarka dokumentów", box_, Align::Centre))
+            .expect("a 96-unit box has room for something");
+        assert!(
+            img.x >= box_.x() && img.x + img.width as i32 <= box_.right(),
+            "image at {}..{} escapes {box_:?}",
+            img.x,
+            img.x + img.width as i32
+        );
+    }
+
+    #[test]
+    fn a_caption_that_fits_is_left_alone() {
+        // Cutting text that fits would put an ellipsis on half the shell, and
+        // the clock is the loudest case: 160 units, five characters, never cut.
+        let mut t = TextRenderer::new();
+        if skip_without_fonts(&t) {
+            return;
+        }
+        let wide = image_of(
+            &mut t,
+            run("Pliki", Rect::new(0, 0, 400, 20), Align::Centre),
+        )
+        .expect("plenty of room");
+        let snug = image_of(&mut t, run("Pliki", Rect::new(0, 0, 96, 20), Align::Centre))
+            .expect("still fits");
+        assert_eq!(
+            wide.pixels, snug.pixels,
+            "the same word drawn twice, cut neither time"
+        );
+    }
+
+    #[test]
+    fn a_box_too_narrow_for_even_an_ellipsis_draws_nothing() {
+        // A lone "…" in a box is not information, and it is not honest either:
+        // it looks like a name that was there. An empty tile says the same thing
+        // and does not pretend.
+        let mut t = TextRenderer::new();
+        if skip_without_fonts(&t) {
+            return;
+        }
+        assert!(image_of(
+            &mut t,
+            run("Kalkulator", Rect::new(0, 0, 2, 20), Align::Centre)
+        )
+        .is_none());
+        assert!(image_of(
+            &mut t,
+            run("Kalkulator", Rect::new(0, 0, 0, 20), Align::Centre)
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn the_same_caption_in_two_widths_is_two_pictures_and_two_entries() {
+        // The trap the cache key was one field short of: with the width left
+        // out, whichever tile was drawn first would decide how the name looks in
+        // every other tile — and the wrong winner is the wide one, which then
+        // overflows the narrow tile it was never measured for.
+        let mut t = TextRenderer::new();
+        if skip_without_fonts(&t) {
+            return;
+        }
+        let long = "Przeglądarka dokumentów";
+        let narrow = image_of(&mut t, run(long, Rect::new(0, 0, 96, 20), Align::Centre)).unwrap();
+        let wider = image_of(&mut t, run(long, Rect::new(0, 0, 200, 20), Align::Centre)).unwrap();
+        assert_eq!(t.cached_runs(), 2);
+        assert!(narrow.width < wider.width, "the narrow tile shows less");
+        assert!(wider.width <= 200);
     }
 
     #[test]
