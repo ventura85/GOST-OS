@@ -272,6 +272,56 @@ pub fn layout_tiles(card: Rect, m: &Metrics, count: usize) -> Vec<Rect> {
     out
 }
 
+/// The two halves of a dead tile: the mark, and the name under it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TileFace {
+    /// Square left for the icon, centred in what the caption did not take.
+    pub icon: Rect,
+    /// Strip along the bottom of the tile for the caption, or `None` when the
+    /// tile is too small to hold a name and a mark both.
+    pub caption: Option<Rect>,
+}
+
+/// Split a tile into the icon square and the caption strip below it.
+///
+/// A dead tile is a shortcut: an icon and a name (D-033). Both live **inside**
+/// the tile rather than the name hanging below it, which is what keeps the grid
+/// a grid — a caption outside the square would make the row height depend on
+/// whether anything in that row had a name.
+///
+/// The caption is dropped, not shrunk, when the tile is small: a two-line-tall
+/// strip of half-height glyphs is not a name, it is a smudge that costs the icon
+/// its room. Same rule as the top bar, which drops elements rather than
+/// overlapping them, and as [`layout_tiles`], which drops tiles rather than
+/// squeezing them.
+///
+/// `line` is the height one line of caption needs, which the caller derives from
+/// the font size — core does not know what a font is (D-016), only that
+/// something asked it to reserve that many units.
+pub fn tile_face(tile: Rect, line: i32) -> TileFace {
+    let line = line.max(0);
+    // The icon needs to stay square and big enough to read: below half the tile
+    // it is a dot with a label, not a shortcut.
+    let fits = line > 0 && tile.h() - line >= tile.h() / 2 && tile.w() > 0;
+    if !fits {
+        return TileFace {
+            icon: tile,
+            caption: None,
+        };
+    }
+    let icon_h = tile.h() - line;
+    let side = icon_h.min(tile.w());
+    TileFace {
+        icon: Rect::new(
+            tile.x() + (tile.w() - side) / 2,
+            tile.y() + (icon_h - side) / 2,
+            side,
+            side,
+        ),
+        caption: Some(Rect::new(tile.x(), tile.bottom() - line, tile.w(), line)),
+    }
+}
+
 /// Place the top bar's elements, dropping what does not fit.
 ///
 /// The menu always stays; everything else goes when the room runs out. What
@@ -707,6 +757,60 @@ mod tests {
                 assert!(t.y() >= card.y() + m.card_header && t.bottom() <= card.bottom());
             }
         }
+    }
+
+    #[test]
+    fn a_tile_keeps_its_icon_square_and_its_caption_at_the_bottom() {
+        let m = Metrics::default();
+        let card = card_columns(apps(1920, 1080), &m, 3, 0).cards[0];
+        let tile = layout_tiles(card, &m, 1)[0];
+        let face = tile_face(tile, 18);
+        let caption = face.caption.expect("a 96-unit tile has room for a name");
+
+        assert_eq!(face.icon.w(), face.icon.h(), "square, or it is not an icon");
+        assert_eq!(caption.bottom(), tile.bottom(), "the name sits at the foot");
+        assert_eq!(caption.w(), tile.w(), "and gets the tile's full width");
+        assert!(
+            face.icon.bottom() <= caption.y(),
+            "the mark and the name must not overlap: {:?} into {caption:?}",
+            face.icon
+        );
+        for r in [face.icon, caption] {
+            assert!(
+                r.x() >= tile.x()
+                    && r.y() >= tile.y()
+                    && r.right() <= tile.right()
+                    && r.bottom() <= tile.bottom(),
+                "{r:?} leaves {tile:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_tile_too_small_for_both_keeps_the_icon_and_drops_the_name() {
+        // Half the tile spent on a caption leaves a mark nobody can read, and
+        // two unreadable things are worse than one readable one. The top bar
+        // drops elements for the same reason rather than overlapping them.
+        let tile = Rect::new(0, 0, 40, 40);
+        assert_eq!(tile_face(tile, 30).caption, None);
+        assert_eq!(tile_face(tile, 30).icon, tile);
+        // A caption asking for nothing is not a caption.
+        assert_eq!(tile_face(tile, 0).caption, None);
+        // And a degenerate tile answers rather than producing a negative box.
+        assert_eq!(tile_face(Rect::new(0, 0, 0, 0), 18).caption, None);
+    }
+
+    #[test]
+    fn the_caption_takes_its_room_from_the_icon_and_not_from_the_tile() {
+        // The grid is the thing being protected here: a name is drawn inside the
+        // square, so a card of tiles with names and a card of tiles without them
+        // have rows in the same places.
+        let tile = Rect::new(10, 20, 96, 96);
+        let with = tile_face(tile, 18);
+        let without = tile_face(tile, 0);
+        assert_eq!(without.icon, tile);
+        assert!(with.icon.h() < without.icon.h());
+        assert_eq!(with.icon.h(), 96 - 18);
     }
 
     #[test]

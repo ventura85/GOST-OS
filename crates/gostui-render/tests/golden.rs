@@ -23,8 +23,12 @@
 //!
 //! # Why there is no text in any of these
 //!
-//! The only text the shell draws is the clock (`paint.rs`), so every scene here
-//! sets `clock: None` and the images contain no glyphs at all. That is
+//! The shell draws two kinds of text — the clock and the caption of every dead
+//! tile — and every scene here is built without either: `clock: None`, and
+//! shortcuts with no name. Both are **data**, not a switch that changes how the
+//! shell draws: the caption strip is still reserved inside each tile and the
+//! icon square is still sized around it, so what these images pin down is the
+//! layout that ships. Only the glyphs are missing. That is
 //! deliberate twice over: text differs by one bit between the two paths (D-005),
 //! and glyphs would tie these files to the font versions of whatever machine
 //! rendered them — which would make CI disagree with a developer's laptop for
@@ -156,8 +160,11 @@ fn render(scene: &Scene) -> Canvas {
         let id = tabs.add(*name);
         let tab = tabs.get_mut(id).expect("just added");
         for i in 0..scene.items {
-            tab.items
-                .push(LauncherItem::new(format!("app{i}"), format!("App {i}")));
+            // Nameless on purpose, the same way every scene sets `clock: None`:
+            // the caption strip is still reserved and the icon square is still
+            // sized around it, so the geometry these images guard is the real
+            // one — only the glyphs are absent. See the note on text above.
+            tab.items.push(LauncherItem::new(format!("app{i}"), ""));
         }
     }
     for _ in 0..scene.active {

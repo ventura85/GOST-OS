@@ -1,9 +1,10 @@
 //! Painting the shell itself: the two bars and the tab slider.
 //!
-//! No text yet — `cosmic-text` arrives with step 5 of M1 (D-005). Until then every
-//! label is drawn as the block of space it will occupy, which is deliberately
-//! useful: it shows whether the *layout* is right before any font question is
-//! allowed to confuse the picture.
+//! Text is here now (the clock, and the caption of every dead tile), but the
+//! rule it arrived under still holds: an element whose picture is not ready is
+//! drawn as the block of space it will occupy. A tile's icon is such a block
+//! today — the layout can be judged before any icon theme is allowed to confuse
+//! the picture.
 //!
 //! **The shape of this module matters more than what it draws.** Nothing here
 //! touches pixels: [`display_list`] turns the shell state into a sequence of
@@ -15,9 +16,9 @@
 use crate::text::{Align, Primitive, SurfaceSlot, TextRenderer, TextRun};
 use crate::{Canvas, Rgba};
 use gostui_core::geometry::Rect;
-use gostui_core::shell::{card_columns, layout_tiles, Zones};
+use gostui_core::shell::{card_columns, layout_tiles, tile_face, Zones};
 use gostui_core::tab::TabStrip;
-use gostui_core::theme::Theme;
+use gostui_core::theme::{Fonts, Theme};
 
 /// The colour roles, re-exported from the theme.
 ///
@@ -238,9 +239,28 @@ fn cards(out: &mut Vec<Primitive>, area: Rect, tabs: &TabStrip, theme: &Theme) {
             Rect::new(card.x(), card.y(), card.w(), m.card_header),
             p.chip,
         );
-        let items = tabs.iter().nth(index).map_or(0, |t| t.items.len());
-        for tile in layout_tiles(*card, m, items) {
-            push(out, tile, p.tile);
+        // A dead tile is an icon and a name (D-033). The icon has no pixels yet
+        // — that is its own step, with an icon theme and a cache behind it — so
+        // what a tile shows today is its name, cut to the tile by the text stack
+        // when the application chose a long one.
+        let tab = tabs.iter().nth(index);
+        let items = tab.map_or(0, |t| t.items.len());
+        let line = Fonts::line_height(theme.fonts.size_tile);
+        for (i, tile) in layout_tiles(*card, m, items).iter().enumerate() {
+            push(out, *tile, p.tile);
+            let face = tile_face(*tile, line);
+            let (Some(caption), Some(item)) = (face.caption, tab.and_then(|t| t.items.get(i)))
+            else {
+                continue;
+            };
+            out.push(Primitive::Text(TextRun {
+                area: caption,
+                text: item.name.clone(),
+                size: theme.fonts.size_tile,
+                colour: p.text,
+                family: theme.fonts.ui.clone(),
+                align: Align::Centre,
+            }));
         }
     }
 }
@@ -306,6 +326,71 @@ mod tests {
             surfaces: &[],
         };
         crate::text::only_fills(&display_list(&view, &theme_fixture()))
+    }
+
+    /// A card of `items` shortcuts, and the display list a monitor draws it into.
+    fn card_with_items(items: usize) -> (Vec<Primitive>, Rect, Theme) {
+        let mut tabs = TabStrip::new();
+        let id = tabs.add("Pliki");
+        let tab = tabs.get_mut(id).expect("just added");
+        for i in 0..items {
+            tab.items.push(gostui_core::tab::LauncherItem::new(
+                format!("a{i}"),
+                "Nazwa",
+            ));
+        }
+        let theme = theme_fixture();
+        let z = zones(Rect::new(0, 0, 1920, 1080), BarHeights::default());
+        let view = ShellView {
+            zones: z,
+            tabs: &tabs,
+            windows: &[],
+            focused_window: None,
+            clock: None,
+            surfaces: &[],
+        };
+        let card = card_columns(z.apps, &theme.metrics, 1, 0).cards[0];
+        (display_list(&view, &theme), card, theme)
+    }
+
+    #[test]
+    fn a_caption_is_drawn_for_every_tile_that_was_drawn_and_for_no_other() {
+        // Ninety shortcuts on a card with room for a dozen. Captions have to stop
+        // where the tiles stop: a name for a tile that was dropped would be text
+        // floating on the card below the grid, pointing at nothing. The tile
+        // count is not written down here on purpose — it comes from the same
+        // function the painter used, so this stays true when the metrics change.
+        let (list, card, theme) = card_with_items(90);
+        let tiles = layout_tiles(card, &theme.metrics, 90);
+        let captions: Vec<&TextRun> = list
+            .iter()
+            .filter_map(|p| match p {
+                Primitive::Text(r) if r.text == "Nazwa" => Some(r),
+                _ => None,
+            })
+            .collect();
+
+        assert!(!tiles.is_empty(), "the fixture must draw some tiles");
+        assert_eq!(captions.len(), tiles.len());
+        for (caption, tile) in captions.iter().zip(&tiles) {
+            let expected = tile_face(*tile, Fonts::line_height(theme.fonts.size_tile))
+                .caption
+                .expect("a full-size tile has room for a name");
+            assert_eq!(
+                caption.area, expected,
+                "the caption belongs to its own tile"
+            );
+        }
+    }
+
+    #[test]
+    fn a_card_with_no_shortcuts_puts_no_text_in_the_middle_zone() {
+        // What the golden images rest on: with nothing named, the middle zone
+        // contains no glyphs, so those files stay identical on this station and
+        // in CI. If a caption ever appeared for an empty card, they would start
+        // disagreeing for a reason that has nothing to do with the shell.
+        let (list, _, _) = card_with_items(0);
+        assert!(!list.iter().any(|p| matches!(p, Primitive::Text(_))));
     }
 
     #[test]
