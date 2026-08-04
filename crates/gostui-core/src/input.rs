@@ -123,6 +123,15 @@ pub enum Action {
     /// point: a fullscreen window is the only one allowed to cover both bars, so
     /// the way out of it must not depend on the application still answering.
     ToggleFullscreen,
+    /// Move the card slider one column to the right (D-007).
+    ///
+    /// Cards and windows are disjoint (D-003), so this moves the slider whatever
+    /// the windows are doing — including when they cover it. That is what "global"
+    /// in D-007 means, and the alternative is worse: a shortcut that works only
+    /// when the middle zone happens to be uncovered is a shortcut the user cannot
+    /// trust, and finding out requires looking rather than pressing.
+    ActivateNextCard,
+    ActivatePreviousCard,
 }
 
 /// A key with its modifiers.
@@ -171,6 +180,19 @@ impl Default for Keymap {
         map.bind(
             Binding::new(Keysym::F, Mods::LOGO),
             Action::ToggleFullscreen,
+        );
+        // D-007. The bare arrow keys the same decision also allows — the ones
+        // that work when the slider itself holds focus — are deliberately absent:
+        // "the slider has focus" is not a state anything in the shell can be in
+        // yet, and a binding for a state that cannot happen is either dead code
+        // or, if it ever matches, an arrow key stolen from a text field.
+        map.bind(
+            Binding::new(Keysym::RIGHT, Mods::LOGO),
+            Action::ActivateNextCard,
+        );
+        map.bind(
+            Binding::new(Keysym::LEFT, Mods::LOGO),
+            Action::ActivatePreviousCard,
         );
         map
     }
@@ -574,7 +596,11 @@ mod tests {
             map.action(Keysym::TAB, Mods::LOGO),
             Some(Action::CloseWindow)
         );
-        assert_eq!(map.iter().count(), 4, "a rebind must not grow the map");
+        assert_eq!(
+            map.iter().count(),
+            Keymap::default().iter().count(),
+            "a rebind must not grow the map"
+        );
     }
 
     #[test]
@@ -584,6 +610,100 @@ mod tests {
         assert!(!m.contains(Mods::CTRL) && !m.contains(Mods::ALT));
         assert_eq!(m, Mods::SHIFT | Mods::LOGO);
         assert!(Mods::from_flags(false, false, false, false).is_empty());
+    }
+
+    #[test]
+    fn the_arrows_move_the_slider_only_when_super_is_held() {
+        let map = Keymap::default();
+        assert_eq!(
+            map.action(Keysym::RIGHT, Mods::LOGO),
+            Some(Action::ActivateNextCard)
+        );
+        assert_eq!(
+            map.action(Keysym::LEFT, Mods::LOGO),
+            Some(Action::ActivatePreviousCard)
+        );
+        // The other half of D-007 — bare arrows while the slider holds focus —
+        // is deliberately not bound, and this is the assertion that keeps it
+        // that way. A bare arrow claimed globally is an arrow taken from every
+        // text field in every application, and the application has no way to
+        // notice that it happened.
+        assert_eq!(map.action(Keysym::RIGHT, Mods::NONE), None);
+        assert_eq!(map.action(Keysym::LEFT, Mods::NONE), None);
+        assert_eq!(map.action(Keysym::LEFT, Mods::LOGO | Mods::SHIFT), None);
+    }
+
+    #[test]
+    fn walking_the_strip_with_the_keyboard_never_leaves_the_active_card_clipped() {
+        // What the shortcut is actually for: the card it activates has to be on
+        // screen and whole. The strip scrolls only because `first` follows
+        // `active`, so an off-by-one there does not hide the card — it leaves it
+        // as the clipped sliver against the edge, which reads as a shortcut that
+        // half worked. Walking every card of every output shape is the cheapest
+        // way to find that, and it costs a millisecond.
+        let m = Metrics::default();
+        for (w, h) in [(1920, 1080), (780, 360), (360, 780)] {
+            let apps = zones(Rect::new(0, 0, w, h), BarHeights::default()).apps;
+            let whole = m.card_width.min(apps.w());
+            let mut tabs = strip(12, 0);
+
+            let mut visited = vec![tabs.active_index()];
+            loop {
+                let l = card_columns(apps, &m, tabs.len(), tabs.active_index());
+                let card = l
+                    .cards
+                    .get(tabs.active_index() - l.first)
+                    .unwrap_or_else(|| {
+                        panic!("card {} off screen on {w}×{h}", tabs.active_index())
+                    });
+                assert_eq!(
+                    card.w(),
+                    whole,
+                    "card {} is clipped on {w}×{h}",
+                    tabs.active_index()
+                );
+                if !tabs.activate_next() {
+                    break;
+                }
+                visited.push(tabs.active_index());
+            }
+            // Every card, in order, and the strip stops at the end rather than
+            // wrapping (D-007 is a strip, not a carousel).
+            assert_eq!(visited, (0..12).collect::<Vec<_>>(), "on {w}×{h}");
+
+            while tabs.activate_prev() {
+                let l = card_columns(apps, &m, tabs.len(), tabs.active_index());
+                assert_eq!(
+                    l.cards.get(tabs.active_index() - l.first).map(|c| c.w()),
+                    Some(whole),
+                    "coming back, card {} on {w}×{h}",
+                    tabs.active_index()
+                );
+            }
+            assert_eq!(
+                tabs.active_index(),
+                0,
+                "walking back reaches the first card"
+            );
+        }
+    }
+
+    #[test]
+    fn the_slider_shortcut_reports_when_nothing_moved() {
+        // The bool is not decoration: the compositor draws a frame only when the
+        // strip actually moved. Pressing Super+Right at the last card has to
+        // cost nothing at all, or holding the key down is a render loop
+        // (D-027 — zero rendering at rest).
+        let mut tabs = strip(3, 0);
+        assert!(!tabs.activate_prev(), "already at the first card");
+        assert!(tabs.activate_next() && tabs.activate_next());
+        assert!(!tabs.activate_next(), "already at the last card");
+        assert_eq!(tabs.active_index(), 2);
+
+        // And an empty strip answers rather than panicking: the shell starts
+        // with no cards at all before the configuration is read.
+        let mut empty = TabStrip::new();
+        assert!(!empty.activate_next() && !empty.activate_prev());
     }
 
     #[test]

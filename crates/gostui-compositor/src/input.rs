@@ -214,6 +214,29 @@ impl State {
                 // it is free to redraw accordingly — but it does not get a vote.
                 self.focus_changed();
             }
+            // The slider (D-007). No `focus_changed` here and that is the point:
+            // cards and windows are disjoint (D-003), so moving the strip changes
+            // nothing about which window has the keyboard — sending focus events
+            // for it would be telling clients about something that did not happen
+            // to them.
+            Action::ActivateNextCard => self.slide(true),
+            Action::ActivatePreviousCard => self.slide(false),
+        }
+    }
+
+    /// Move the card strip one column, and redraw only if it moved.
+    ///
+    /// The strip does not wrap, so at either end this is a keypress that changes
+    /// nothing — and a frame drawn for it would be a frame with no cause, which
+    /// is exactly what a held-down arrow key would turn into a render loop.
+    fn slide(&mut self, forward: bool) {
+        let moved = if forward {
+            self.tabs.activate_next()
+        } else {
+            self.tabs.activate_prev()
+        };
+        if moved {
+            self.request_redraw();
         }
     }
 
