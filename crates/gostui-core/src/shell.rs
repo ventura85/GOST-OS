@@ -311,6 +311,11 @@ pub fn tile_face(tile: Rect, line: i32) -> TileFace {
     }
     let icon_h = tile.h() - line;
     let side = icon_h.min(tile.w());
+    // A caption running edge to edge reads as text the tile cut off by accident,
+    // which is exactly what an ellipsis is supposed to say on purpose. The inset
+    // is small — this is a dense interface (D-044), not an airy one — but it has
+    // to be there, and it shrinks rather than disappears on a tiny tile.
+    let pad = CAPTION_PAD.min(tile.w() / 8);
     TileFace {
         icon: Rect::new(
             tile.x() + (tile.w() - side) / 2,
@@ -318,9 +323,17 @@ pub fn tile_face(tile: Rect, line: i32) -> TileFace {
             side,
             side,
         ),
-        caption: Some(Rect::new(tile.x(), tile.bottom() - line, tile.w(), line)),
+        caption: Some(Rect::new(
+            tile.x() + pad,
+            tile.bottom() - line,
+            tile.w() - 2 * pad,
+            line,
+        )),
     }
 }
+
+/// Breathing room on each side of a tile's caption, in logical units.
+const CAPTION_PAD: i32 = 4;
 
 /// Place the top bar's elements, dropping what does not fit.
 ///
@@ -769,7 +782,14 @@ mod tests {
 
         assert_eq!(face.icon.w(), face.icon.h(), "square, or it is not an icon");
         assert_eq!(caption.bottom(), tile.bottom(), "the name sits at the foot");
-        assert_eq!(caption.w(), tile.w(), "and gets the tile's full width");
+        // Inset, not flush: text touching the edge reads as accidentally cut,
+        // which is the one thing the ellipsis is there to say deliberately.
+        assert!(caption.x() > tile.x() && caption.right() < tile.right());
+        assert_eq!(
+            caption.x() - tile.x(),
+            tile.right() - caption.right(),
+            "the same margin on both sides"
+        );
         assert!(
             face.icon.bottom() <= caption.y(),
             "the mark and the name must not overlap: {:?} into {caption:?}",
