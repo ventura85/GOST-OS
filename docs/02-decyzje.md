@@ -112,10 +112,27 @@ autologinie; jeśli potrzebny wybór sesji, `greetd` + `tuigreet`. Własny front
 **Odniesienie:** §2.5
 
 ## D-007 — Nawigacja slidera z klawiatury
-**Status:** OTWARTA (rekomendacja: przyjąć)
+**Status:** ✅ **PRZYJĘTA** (2026-08-04) — rekomendacja przyjęta i zrealizowana w kodzie
 **Decyzja:** `Super+←/→` globalnie; gołe strzałki tylko gdy fokus ma slider. Gołe strzałki globalnie
 zepsułyby każde pole tekstowe w każdej aplikacji.
-**Odniesienie:** §4.2
+
+**Co weszło (2026-08-04):** `Action::ActivateNextCard` / `ActivatePreviousCard` w `gostui-core`
+i dwa skróty w domyślnej mapie. Skrót działa **niezależnie od okien** — karty i okna są rozłączne
+(D-003), więc przesunięcie paska nie zmienia fokusu okna i nie wysyła klientom niczego.
+
+**Czego świadomie nie ma:** gołych strzałek. „Slider ma fokus" nie jest stanem, w którym powłoka
+może dziś być, a skrót na stan nieosiągalny jest albo kodem martwym, albo — jeśli kiedyś trafi —
+strzałką odebraną polu tekstowemu. Wejdą razem z fokusem slidera, nie wcześniej; pilnuje tego
+asercja w `the_arrows_move_the_slider_only_when_super_is_held`.
+
+**Konsekwencja dla zera renderowania (D-027):** pasek nie zawija się na końcach, więc przy skrajnej
+karcie wciśnięcie nie zmienia nic **i nie rysuje klatki**. Bez tego przytrzymana strzałka jest
+pętlą renderującą — najtańszy sposób na złamanie wymagania, które kosztowało cały M2.
+
+**Kolizja z sesją-gospodarzem, nie usterka:** `xfwm4` trzyma `Super`+strzałki, więc w trybie
+zagnieżdżonym skrót nie dociera do nas, dopóki nie puści ich `scripts/xfce-zwolnij-skroty.sh`.
+Na gołym metalu (M4) problem nie istnieje.
+**Odniesienie:** §4.2, D-003, D-027, D-046
 
 ## D-008 — Zawartość karty
 **Status:** OTWARTA (rekomendacja: przyjąć i wpisać do specyfikacji)
@@ -1316,7 +1333,7 @@ D-031 (zastąpiona), D-032, D-044
 | D-044 | Kierunek wizualny | Final Cartridge III / stary Windows: płaskie prostokąty, ostre krawędzie, gęstość |
 
 **Rekomendacje przyjmowane domyślnie** (bez sensownej alternatywy, do zakwestionowania w każdej chwili):
-D-006 greeter poza Core, D-007 `Super+←/→`, D-008 karta = siatka skrótów,
+D-006 greeter poza Core, D-008 karta = siatka skrótów,
 D-009 jedna karta przypięta, D-011 jednostki logiczne, D-013 zakres
 rozszerzony o XWayland/schowek/powiadomienia/tray/portale/polkit,
 D-018 a11y poza zakresem. (D-017 wyszło z tej listy — zaostrzone przez D-027.

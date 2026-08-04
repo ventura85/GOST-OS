@@ -683,16 +683,17 @@ Zrobione:
    glify) i dzięki temu wychodzą identycznie tutaj i na maszynie CI — sprawdzone, nie założone.
    Koszt: `check` w CI wydłużył się z ~57 s do ~1 min 36 s.
 
-**Czego nie zaczynać bez rozmowy:** samego slidera — a dokładnie jednej rzeczy w nim. **D-031
-jest odstępstwem od `gostos.md` §B**: zastępuje skrawki sąsiednich kart paskiem nazw. Specyfikacji
-nie zmienia się bez wyraźnej prośby użytkownika, więc to pytanie do człowieka, nie do rejestru.
-D-030 i D-033 też należy przeczytać przed kodem; D-007, D-008 i D-009 mają rekomendacje
-przyjmowane domyślnie i wystarczy jawnie zaznaczyć, że się je bierze. Tabela:
-`docs/04-zasady-pracy.md`.
+**Czego nie zaczynać bez rozmowy:** dawniej był to sam slider, przez odstępstwo od `gostos.md` §B
+zapisane w D-031. **Odstępstwo zniknęło, nie zostało wynegocjowane** (2026-08-03): karta jako
+kolumna o stałej szerokości (D-046) daje skrawek sąsiedniej karty wprost ze specyfikacji — to
+po prostu wygląd kolumny, która się nie zmieściła. D-031 ma status ZASTĄPIONA, a pytania
+do człowieka w tym miejscu już nie ma. D-030 i D-033 nadal czytaj przed kodem; D-008 i D-009 mają
+rekomendacje przyjmowane domyślnie i wystarczy jawnie zaznaczyć, że się je bierze (tak weszło
+D-007 — `Super+←/→`, 2026-08-04). Tabela: `docs/04-zasady-pracy.md`.
 
-Uwaga praktyczna: obecne rysowanie środkowej strefy to **stary układ pływających kart**, który
-D-031 usuwa. Złote obrazy utrwalają jego dzisiejszy wygląd — gdy D-031 wejdzie, zaprotestują,
-i to jest zamierzone.
+Uwaga praktyczna: środkowa strefa jest już narysowana kolumnami, a złote obrazy utrwalają ten
+układ — w tym scenę z przewiniętym paskiem. Kolejna zmiana wyglądu karty zaprotestuje w `cargo
+test` i tak ma być; `GOSTUI_BLESS=1` dopiero po obejrzeniu obu plików.
 
 ### M4 — Goły metal
 Backend `udev`/DRM/KMS + `libinput` + `seatd`, przełączanie VT, obsługa uśpienia/wybudzenia.
