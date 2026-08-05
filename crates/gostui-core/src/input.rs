@@ -776,17 +776,22 @@ mod tests {
     #[test]
     fn a_card_scrolled_off_the_strip_cannot_be_clicked() {
         // The same rule the bottom bar already follows: what was not drawn
-        // cannot be hit. With card 11 active the strip starts at 5, so the
-        // leftmost column is card 5 and cards 0..5 are unreachable.
+        // cannot be hit. With the last of twelve cards active the strip is
+        // clamped to its end, and everything before the leftmost drawn column is
+        // unreachable.
         let (z, m) = (monitor(), Metrics::default());
         let mut tabs = strip(12, 0);
         let last = tabs.iter().last().expect("twelve cards").id;
         assert!(tabs.set_active(last));
 
         let l = card_columns(z.apps, &m, 12, tabs.active_index());
-        assert_eq!(l.first, 5);
-        let p = Point::new(l.cards[0].x() + 2, l.cards[0].y() + 2);
-        assert_eq!(hit_test(&z, &[], 0, &tabs, &m, p), Hit::Card(5));
+        assert!(l.first > 0, "the strip has scrolled");
+
+        // Probe the zone's own left edge, not the card's: the leftmost column
+        // now starts off screen, and a point outside the output is not a click
+        // anyone can make.
+        let p = Point::new(z.apps.x() + 1, z.apps.y() + 2);
+        assert_eq!(hit_test(&z, &[], 0, &tabs, &m, p), Hit::Card(l.first));
     }
 
     #[test]

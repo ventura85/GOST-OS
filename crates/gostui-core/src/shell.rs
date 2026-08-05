@@ -180,10 +180,18 @@ pub fn bottom_bar_layout(bar: Rect, count: usize) -> Vec<Rect> {
 pub struct CardLayout {
     /// One rectangle per drawn card, in strip order, starting at [`first`].
     ///
-    /// The last one is **narrower than the rest** when the zone runs out before
-    /// the card does. That clipped column is the specification's "sliver of the
-    /// neighbouring card": it is not a separate thing to draw, it is what a card
-    /// that does not fit looks like.
+    /// Every card is the **same width**, including the ones at the ends, and a
+    /// card that does not fit **hangs off the edge** — its rectangle starts
+    /// before the zone or ends after it. That overhang is the specification's
+    /// "sliver of the neighbouring card", and keeping it as a whole rectangle is
+    /// what makes it one: the tiles inside it are placed by the same arithmetic
+    /// as every other card's and then cut by the rasteriser, so the sliver shows
+    /// part of a card rather than an empty column.
+    ///
+    /// Narrowing the rectangle instead — which is what this did until the strip
+    /// was centred — hands [`layout_tiles`] a box too small for a single tile
+    /// column, and it answers correctly for the box it was given: no tiles at
+    /// all. The card was not being clipped, it was being **re-laid-out**.
     ///
     /// [`first`]: CardLayout::first
     pub cards: Vec<Rect>,
@@ -200,6 +208,24 @@ pub struct CardLayout {
 /// single card stays the same size everywhere. That is the property worth
 /// keeping: a card is one object, not one object per form factor.
 ///
+/// **The active card sits in the middle of the zone**, so the strip reads the
+/// same on every output: what you are looking at is centred, and what is on
+/// either side of it is visible as a sliver. On a phone held upright that is the
+/// whole interaction — one card and a hint of its neighbours — and it is
+/// `gostos.md` §B taken literally, which says the neighbouring cards show *at
+/// the sides*, plural.
+///
+/// **Except at the ends, where the strip is clamped.** The first card does not
+/// float into the middle leaving nothing to its left: empty space where the eye
+/// expects a card reads as a fault, not as a layout, and a shell that puts
+/// density above room (D-044) has no use for it. So the strip stops when its
+/// edge reaches the zone's edge, exactly as it did before it was centred, and
+/// `Super+←` on the first card still moves nothing and draws no frame (D-007).
+///
+/// **When every card fits, the whole strip is centred instead.** Four cards on a
+/// 1920 monitor leave 844 units over; spent on one side they are a hole, split
+/// between the two they are a margin.
+///
 /// `first` is **derived from `active`, never stored**. Scrolling the strip has
 /// exactly one cause — the focused card has to be on screen — so keeping it as
 /// state would be keeping a second answer to a question that already has one,
@@ -212,26 +238,52 @@ pub fn card_columns(area: Rect, m: &Metrics, count: usize, active: usize) -> Car
         return CardLayout::default();
     }
     // An output narrower than one card gets one card as wide as the output,
-    // rather than a column hanging off the edge.
+    // rather than a column hanging off both edges at once and never showing a
+    // whole one.
     let width = m.card_width.min(area.w());
     let step = width + m.card_gap;
 
-    // How many fit whole. At least one, or a very narrow zone would show none
-    // and the shell would look broken rather than cramped.
-    let visible = ((area.w() + m.card_gap) / step).max(1) as usize;
-    let first = (active + 1).saturating_sub(visible);
+    // Saturating, because the strip length is the one place where a tab count
+    // multiplies: a caller with an absurd number of cards should get a wrong
+    // picture, not a wrapped one.
+    let n = i32::try_from(count).unwrap_or(i32::MAX);
+    let strip = n.saturating_mul(step).saturating_sub(m.card_gap);
+
+    // How far the strip has slid left, in units. Positive means scrolled;
+    // negative means it is narrower than the zone and has been centred in it.
+    let offset = if strip <= area.w() {
+        -(area.w() - strip) / 2
+    } else {
+        let centred = i32::try_from(active)
+            .unwrap_or(i32::MAX)
+            .saturating_mul(step)
+            .saturating_add(width / 2 - area.w() / 2);
+        centred.clamp(0, strip - area.w())
+    };
+
+    // Start from the last card that could still reach into the zone from the
+    // left, so a strip of a thousand cards costs the same as a strip of ten.
+    let start = if offset > width {
+        ((offset - width) / step) as usize
+    } else {
+        0
+    };
 
     let mut cards = Vec::new();
-    for i in first..count {
-        let x = area.x() + (i - first) as i32 * step;
+    let mut first = start;
+    for i in start..count {
+        let x = area.x() + (i as i32).saturating_mul(step) - offset;
+        if x + width <= area.x() {
+            // Entirely past the left edge — `start` overshoots by at most one.
+            first = i + 1;
+            continue;
+        }
         if x >= area.right() {
             break;
         }
-        // Clipping here rather than in the painter keeps the rectangle honest:
-        // whatever reads this layout — renderer or hit test — sees the same
-        // card, and neither has to know that the last one is special.
-        let w = width.min(area.right() - x);
-        cards.push(Rect::new(x, area.y(), w, area.h()));
+        // Full width even when it hangs off: the sliver is a card seen partly,
+        // and the rasteriser is what cuts it. See [`CardLayout::cards`].
+        cards.push(Rect::new(x, area.y(), width, area.h()));
     }
     CardLayout { cards, first }
 }
@@ -678,43 +730,103 @@ mod tests {
     }
 
     #[test]
-    fn the_card_that_does_not_fit_is_drawn_clipped_and_that_is_the_sliver() {
+    fn the_card_that_does_not_fit_hangs_off_the_edge_and_that_is_the_sliver() {
         // `gostos.md` §B wants neighbouring cards partly visible. Nothing here
-        // draws a sliver: it is the last column, cut off by the zone's edge.
+        // draws a sliver: it is a whole card whose rectangle leaves the zone,
+        // and the rasteriser is what cuts it.
         let m = Metrics::default();
         let area = apps(780, 360);
         let l = card_columns(area, &m, 7, 0);
-        let (full, last) = (l.cards[0], *l.cards.last().unwrap());
-        assert_eq!(full.w(), m.card_width);
-        assert!(last.w() > 0 && last.w() < m.card_width);
-        assert_eq!(last.right(), area.right());
+        assert!(l.cards.iter().all(|c| c.w() == m.card_width));
+        let last = *l.cards.last().unwrap();
+        assert!(last.x() < area.right() && last.right() > area.right());
+
+        // The point of keeping it whole: the sliver shows part of a card. Narrow
+        // the rectangle to the visible strip instead and `layout_tiles` answers
+        // for the box it was handed — no tiles at all — so the sliver becomes an
+        // empty column that hints at nothing.
+        assert_eq!(
+            layout_tiles(last, &m, 6).len(),
+            layout_tiles(l.cards[0], &m, 6).len()
+        );
     }
 
     #[test]
-    fn every_column_is_full_height_and_stays_inside_the_zone() {
+    fn every_column_is_full_size_even_when_it_hangs_off_the_zone() {
         let m = Metrics::default();
         for (w, h) in [(1920, 1080), (780, 360), (360, 780)] {
             let area = apps(w, h);
             for card in card_columns(area, &m, 9, 0).cards {
                 assert_eq!((card.y(), card.h()), (area.y(), area.h()));
-                assert!(card.x() >= area.x() && card.right() <= area.right());
+                assert_eq!(card.w(), m.card_width.min(area.w()));
+                // Hanging off is allowed; being invisible is not. A card nobody
+                // can see is one the painter and the hit test both walk for
+                // nothing.
+                assert!(card.right() > area.x() && card.x() < area.right());
             }
         }
     }
 
     #[test]
-    fn the_strip_scrolls_only_far_enough_to_show_the_active_card() {
+    fn the_active_card_sits_in_the_middle_and_the_strip_stops_at_the_ends() {
         let m = Metrics::default();
         let area = apps(1920, 1080);
-        // Seven fit, so the first seven need no scrolling at all.
-        for active in 0..7 {
-            assert_eq!(card_columns(area, &m, 12, active).first, 0);
+        let offset_from_centre = |l: &CardLayout, active: usize| {
+            let c = l.cards[active - l.first];
+            c.x() + c.w() / 2 - (area.x() + area.w() / 2)
+        };
+
+        // Mid-strip: the card you are looking at is the one in the middle.
+        let mid = card_columns(area, &m, 40, 20);
+        assert!(offset_from_centre(&mid, 20).abs() <= 1);
+
+        // At the ends the strip is clamped instead, so there is never empty
+        // space where the eye expects a card.
+        let head = card_columns(area, &m, 40, 0);
+        assert_eq!(head.first, 0);
+        assert_eq!(head.cards[0].x(), area.x());
+        let tail = card_columns(area, &m, 40, 39);
+        assert_eq!(tail.cards.last().unwrap().right(), area.right());
+
+        // And coming back releases it again — the offset is derived from
+        // `active`, not remembered.
+        assert_eq!(card_columns(area, &m, 40, 0), head);
+    }
+
+    #[test]
+    fn a_strip_narrower_than_the_zone_is_centred_rather_than_left_aligned() {
+        // Four cards on a monitor leave 844 units over. Spent on one side they
+        // are a hole; split between the two they are a margin.
+        let m = Metrics::default();
+        let area = apps(1920, 1080);
+        let l = card_columns(area, &m, 4, 1);
+        assert_eq!(l.cards.len(), 4);
+        let (left, right) = (
+            l.cards[0].x() - area.x(),
+            area.right() - l.cards.last().unwrap().right(),
+        );
+        assert!(left > 0 && (left - right).abs() <= 1, "{left} vs {right}");
+
+        // Nothing is off screen, so nothing scrolls: changing the active card
+        // moves the frame, not the strip.
+        for active in 0..4 {
+            assert_eq!(card_columns(area, &m, 4, active).cards, l.cards);
         }
-        // The eighth pushes the strip by exactly one, not to the end.
-        assert_eq!(card_columns(area, &m, 12, 7).first, 1);
-        assert_eq!(card_columns(area, &m, 12, 11).first, 5);
-        // And coming back releases it again — `first` is derived, not remembered.
-        assert_eq!(card_columns(area, &m, 12, 0).first, 0);
+    }
+
+    #[test]
+    fn on_a_phone_held_upright_the_active_card_has_a_sliver_on_each_side() {
+        // The case the centring is for. One card fits, so left-aligning the
+        // strip shows a neighbour on the right and nothing on the left, while
+        // `gostos.md` §B asks for both sides.
+        let m = Metrics::default();
+        let area = apps(360, 780);
+        let l = card_columns(area, &m, 3, 1);
+        assert_eq!((l.first, l.cards.len()), (0, 3));
+        assert!(l.cards[0].x() < area.x());
+        assert!(l.cards[2].right() > area.right());
+        let active = l.cards[1];
+        assert_eq!(active.x() - area.x(), area.right() - active.right());
     }
 
     #[test]
