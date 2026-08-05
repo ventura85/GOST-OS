@@ -673,9 +673,9 @@ plików XFCE w `menu_start/` pojawia się w menu bez restartu; uruchomienie apli
 (w tym `Terminal=true`); restart kompozytora odtwarza układ kart 1:1; zmiana karty < 16 ms.
 
 **Stan M3 (2026-08-02): zaczęte od brzegów, sedno zablokowane decyzjami.**
-**Odblokowane i w dużej części zrobione (2026-08-05)** — punkty 3–6 niżej. Zostają: ikony
+**Odblokowane i w dużej części zrobione (2026-08-05)** — punkty 3–7 niżej. Zostają: ikony
 na kaflach, kafel żywy (D-033 krok 2), ikony funkcyjne w nagłówku, tryb edycji, przypinanie,
-`[+] Nowa karta` i całe Menu Start.
+skrót klawiszowy na nową kartę i całe Menu Start.
 
 Zrobione:
 
@@ -707,6 +707,10 @@ Zrobione:
    ją zamalowywało. Usterka istniała od pierwszej wersji kart i nie zauważył jej żaden test
    ani żadne z pięciu zdjęć — dopiero nazwa zrobiła z nagłówka rzecz, na którą się patrzy.
    Kolejność w liście wyświetlania ma odtąd własny test.
+7. **`[+] Nowa karta`** (`gostos.md` §B) — **ostatnia kolumna paska**, nie przycisk obok:
+   jako kolumna jest `count + 1` i wyśrodkowanie, zacisk oraz `hit_test` obejmują ją bez
+   wyjątku. Plus to dwa skrzyżowane prostokąty, nie glif. Pasek bez kart przestał być pustką.
+   Zostaje luka: **dodania karty nie da się wywołać z klawiatury** (wymaga wpisu w D-041).
 
 **Czego nie zaczynać bez rozmowy:** dawniej był to sam slider, przez odstępstwo od `gostos.md` §B
 zapisane w D-031. **Odstępstwo zniknęło, nie zostało wynegocjowane** (2026-08-03): karta jako

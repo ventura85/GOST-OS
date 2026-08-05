@@ -170,6 +170,25 @@ co karta zawiera, i pilnuje tego test na kolejność, a nie czyjaś pamięć. **
 wyświetlania jest treścią, nie porządkiem zapisu** — jeśli dokładasz element rysowany
 po czymś, co ma być pod spodem, przesuń go, zamiast szukać innego koloru.
 
+**Pasek kończy się gniazdem `[+] Nowa karta` i jest ono kolumną, nie przyciskiem obok
+(2026-08-05).** To jest cała decyzja w tym miejscu i warto wiedzieć, dlaczego tak: przycisk
+własnego kształtu byłby **drugim przypadkiem w trzech miejscach**, które muszą się zgadzać
+co do jednego prostokąta — `card_columns` (wyśrodkowanie i zacisk), `hit_test` (klik ma trafiać
+tam, gdzie patrzy oko) i arytmetyka offsetu. Jako kolumna jest po prostu `count + 1` i nic
+więcej się nie zmienia; zacisk sam przyprowadza koniec paska do prawej krawędzi, a końcem jest
+teraz gniazdo. **Pasek bez kart jest więc paskiem jednej rzeczy**, nie pustką — to stan świeżej
+sesji, czyli ten, w którym pokazanie „tutaj robi się kartę" jest warte najwięcej.
+
+Plus to **dwa skrzyżowane prostokąty, nie glif** — dokładnie jak cztery kwadraty ikony Menu
+Start. Bez czcionki, bez tekstury, bez cache'u, obie ścieżki renderera wykonują to identycznie,
+a złote obrazy zachowują własność „ani jednego glifu". Siedzi w **górnej jednej trzeciej**
+kolumny, tam gdzie karta trzyma kafle i gdzie idzie oko (zmierzone przy D-046).
+`Hit::NewCard` **nie jest indeksem karty** i `Hit::card` odpowiada na nie `None` — inaczej
+gniazdo czytałoby się jako karta o numerze `len()`, czyli zakładka, której nie ma.
+
+**Karty nadal nie da się dodać z klawiatury** — gniazdo jest celem klikalnym i dotykowym.
+To jest luka, nie decyzja: skrót wymaga wpisu w tablicy skrótów (D-041), więc ma iść osobno.
+
 **Złote obrazy nadal nie zawierają ani jednego glifu** i utrzymują to **trzy** dane, nie jedna:
 `clock: None`, skróty z pustą nazwą **oraz** karty z pustą nazwą (sceny trzymają *liczbę* kart,
 nie ich nazwy). To są dane sceny, nie przełącznik zmieniający rysowanie — paski podpisu
@@ -180,7 +199,7 @@ to scenom danymi**, nie flagą.
 
 Co ze slidera zostaje: **D-033 krok 2 (kafel żywy)** i **D-030** — przeczytać przed kodem;
 ikony na kaflach (Icon Theme Spec + SVG + cache z limitem — nowa zależność, więc wpis
-do rejestru **przed** kodem), ikony funkcyjne w nagłówku karty, `[+] Nowa karta`,
+do rejestru **przed** kodem), ikony funkcyjne w nagłówku karty, skrót na nową kartę,
 resize przeciąganiem krawędzi, tryb edycji. **D-008 i D-009** realizuj, zaznaczając jawnie,
 że bierzesz rekomendację z rejestru.
 
