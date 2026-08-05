@@ -197,6 +197,18 @@ pub struct CardLayout {
     pub cards: Vec<Rect>,
     /// Index into the tab strip of the first drawn card.
     pub first: usize,
+    /// The `[+] Nowa karta` slot, when any of it is on screen.
+    ///
+    /// It is **the last column of the strip**, the same width and height as a
+    /// card, and it takes part in the strip's arithmetic like one: the offset
+    /// that centres the active card and the clamp that stops the strip at its
+    /// ends both count it. A button of its own size beside the strip would be a
+    /// second case in [`card_columns`], in `hit_test`, and in the offset — three
+    /// places to keep agreeing about one rectangle.
+    ///
+    /// Never the active card and never reachable with `Super+←/→`: it makes a
+    /// card, it is not one.
+    pub add: Option<Rect>,
 }
 
 /// Lay the middle zone out as card columns, as many as the output has room for.
@@ -234,9 +246,13 @@ pub struct CardLayout {
 /// Lives in core, like [`bottom_bar_layout`] and [`top_bar_layout`], because a
 /// click has to land on the card that was drawn (D-016).
 pub fn card_columns(area: Rect, m: &Metrics, count: usize, active: usize) -> CardLayout {
-    if count == 0 || area.w() <= 0 || area.h() <= 0 {
+    if area.w() <= 0 || area.h() <= 0 {
         return CardLayout::default();
     }
+    // The `[+]` slot is one more column, so a strip of no cards is still a strip
+    // of one thing — which is the state a fresh session starts in and the one
+    // where being told how to make a card is worth most.
+    let slots = count.saturating_add(1);
     // An output narrower than one card gets one card as wide as the output,
     // rather than a column hanging off both edges at once and never showing a
     // whole one.
@@ -246,7 +262,7 @@ pub fn card_columns(area: Rect, m: &Metrics, count: usize, active: usize) -> Car
     // Saturating, because the strip length is the one place where a tab count
     // multiplies: a caller with an absurd number of cards should get a wrong
     // picture, not a wrapped one.
-    let n = i32::try_from(count).unwrap_or(i32::MAX);
+    let n = i32::try_from(slots).unwrap_or(i32::MAX);
     let strip = n.saturating_mul(step).saturating_sub(m.card_gap);
 
     // How far the strip has slid left, in units. Positive means scrolled;
@@ -270,8 +286,9 @@ pub fn card_columns(area: Rect, m: &Metrics, count: usize, active: usize) -> Car
     };
 
     let mut cards = Vec::new();
+    let mut add = None;
     let mut first = start;
-    for i in start..count {
+    for i in start..slots {
         let x = area.x() + (i as i32).saturating_mul(step) - offset;
         if x + width <= area.x() {
             // Entirely past the left edge — `start` overshoots by at most one.
@@ -283,9 +300,20 @@ pub fn card_columns(area: Rect, m: &Metrics, count: usize, active: usize) -> Car
         }
         // Full width even when it hangs off: the sliver is a card seen partly,
         // and the rasteriser is what cuts it. See [`CardLayout::cards`].
-        cards.push(Rect::new(x, area.y(), width, area.h()));
+        let slot = Rect::new(x, area.y(), width, area.h());
+        if i == count {
+            add = Some(slot);
+        } else {
+            cards.push(slot);
+        }
     }
-    CardLayout { cards, first }
+    // `first` counts cards, so an empty run of them past the left edge must not
+    // leave it pointing at the `[+]` slot, which is not a card index.
+    CardLayout {
+        first: first.min(count),
+        cards,
+        add,
+    }
 }
 
 /// Place the tiles inside one card column.
@@ -382,6 +410,45 @@ pub fn tile_face(tile: Rect, line: i32) -> TileFace {
             line,
         )),
     }
+}
+
+/// Side of the plus mark on the `[+]` slot, and the thickness of its bars.
+const PLUS_SIDE: i32 = 40;
+const PLUS_BAR: i32 = 8;
+
+/// The plus on the `[+] Nowa karta` slot: two crossed bars, or `None` when the
+/// slot is too small to hold the mark whole.
+///
+/// **Two rectangles, not a glyph.** The same reasoning as [`menu_icon`]'s four
+/// squares: a mark made of fills needs no font, no texture and no cache, both
+/// renderer paths execute it identically, and the golden images keep their
+/// property of containing no text at all. A `+` set in the UI font would cost
+/// all three for a shape that is two rectangles.
+///
+/// Placed in the **upper third** of the slot, where a card keeps its tiles — the
+/// eye and then the finger go there (measured for D-046), and a mark centred in
+/// a full-height column would sit halfway down an empty panel.
+pub fn plus_mark(slot: Rect, m: &Metrics) -> Option<[Rect; 2]> {
+    let head = card_header(slot, m);
+    let body = Rect::new(
+        slot.x(),
+        head.bottom(),
+        slot.w(),
+        slot.bottom() - head.bottom(),
+    );
+    if body.w() < PLUS_SIDE || body.h() < PLUS_SIDE || PLUS_BAR <= 0 {
+        return None;
+    }
+    let x = body.x() + (body.w() - PLUS_SIDE) / 2;
+    // A third of the way down rather than halfway, and measured from the body so
+    // the header does not push the mark off centre with respect to the tiles a
+    // real card would show beside it.
+    let y = body.y() + (body.h() / 3 - PLUS_SIDE / 2).max(0);
+    let off = (PLUS_SIDE - PLUS_BAR) / 2;
+    Some([
+        Rect::new(x, y + off, PLUS_SIDE, PLUS_BAR),
+        Rect::new(x + off, y, PLUS_BAR, PLUS_SIDE),
+    ])
 }
 
 /// Breathing room on each side of text set inside a box, in logical units.
@@ -833,8 +900,10 @@ mod tests {
         let head = card_columns(area, &m, 40, 0);
         assert_eq!(head.first, 0);
         assert_eq!(head.cards[0].x(), area.x());
+        // The strip ends with the `[+]` slot, not with the last card, so that is
+        // what the right-hand clamp brings to the edge.
         let tail = card_columns(area, &m, 40, 39);
-        assert_eq!(tail.cards.last().unwrap().right(), area.right());
+        assert_eq!(tail.add.expect("the slot").right(), area.right());
 
         // And coming back releases it again — the offset is derived from
         // `active`, not remembered.
@@ -849,9 +918,11 @@ mod tests {
         let area = apps(1920, 1080);
         let l = card_columns(area, &m, 4, 1);
         assert_eq!(l.cards.len(), 4);
+        // Measured across the whole strip, `[+]` slot included — it is the last
+        // column, so it is part of what gets centred, not something beside it.
         let (left, right) = (
             l.cards[0].x() - area.x(),
-            area.right() - l.cards.last().unwrap().right(),
+            area.right() - l.add.expect("the slot").right(),
         );
         assert!(left > 0 && (left - right).abs() <= 1, "{left} vs {right}");
 
@@ -860,6 +931,69 @@ mod tests {
         for active in 0..4 {
             assert_eq!(card_columns(area, &m, 4, active).cards, l.cards);
         }
+    }
+
+    #[test]
+    fn the_new_card_slot_is_the_last_column_of_the_strip() {
+        let m = Metrics::default();
+        let area = apps(1920, 1080);
+        let l = card_columns(area, &m, 3, 0);
+        let slot = l.add.expect("the slot");
+        let last = *l.cards.last().expect("three cards");
+        // One step past the last card, same size — it is a column, not a button
+        // parked beside the strip.
+        assert_eq!(slot.x() - last.x(), m.card_width + m.card_gap);
+        assert_eq!((slot.w(), slot.h()), (last.w(), last.h()));
+    }
+
+    #[test]
+    fn a_strip_with_no_cards_is_still_a_strip_of_one_thing() {
+        // The state a fresh session starts in, and the one where being shown how
+        // to make a card is worth most. Before the slot this drew nothing at all.
+        let m = Metrics::default();
+        let area = apps(1920, 1080);
+        let l = card_columns(area, &m, 0, 0);
+        assert!(l.cards.is_empty());
+        let slot = l.add.expect("the slot");
+        assert_eq!(slot.x() - area.x(), area.right() - slot.right());
+    }
+
+    #[test]
+    fn the_slot_is_counted_when_the_strip_is_measured() {
+        // The reason it is a column rather than a special case: one more column
+        // is all the centring and the clamp need to know about it. A strip of
+        // cards that just fits stops fitting once the slot is there.
+        let m = Metrics::default();
+        let step = m.card_width + m.card_gap;
+        let area = apps(7 * step - m.card_gap, 1080);
+        let l = card_columns(area, &m, 7, 0);
+        assert_eq!(l.cards.len(), 7);
+        assert_eq!(l.add, None, "the slot is past the edge until you scroll");
+
+        // And the end of the strip is the slot, not the last card: activating
+        // the last card scrolls far enough to bring it to the edge.
+        let end = card_columns(area, &m, 7, 6);
+        assert_eq!(end.add.expect("the slot").right(), area.right());
+    }
+
+    #[test]
+    fn the_plus_is_two_crossed_bars_centred_in_the_slot() {
+        let m = Metrics::default();
+        let slot = card_columns(apps(1920, 1080), &m, 0, 0)
+            .add
+            .expect("the slot");
+        let [across, down] = plus_mark(slot, &m).expect("room for the mark");
+        // Same centre, crossed, and inside the slot rather than over its header.
+        assert_eq!(across.x() + across.w() / 2, down.x() + down.w() / 2);
+        assert_eq!(across.y() + across.h() / 2, down.y() + down.h() / 2);
+        assert_eq!(across.w(), down.h());
+        assert_eq!(across.h(), down.w());
+        assert!(across.x() + across.w() / 2 - slot.x() == slot.w() / 2);
+        assert!(down.y() >= card_header(slot, &m).bottom());
+
+        // Dropped whole rather than drawn cramped, like every other mark here.
+        assert_eq!(plus_mark(Rect::new(0, 0, 20, 400), &m), None);
+        assert_eq!(plus_mark(Rect::new(0, 0, 0, 0), &m), None);
     }
 
     #[test]

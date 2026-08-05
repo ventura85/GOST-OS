@@ -258,6 +258,13 @@ pub enum Hit {
         card: usize,
         tile: usize,
     },
+    /// The `[+] Nowa karta` slot at the end of the strip (`gostos.md` §B).
+    ///
+    /// Deliberately **not** a card index: it is the last column of the strip and
+    /// is laid out as one, but pressing it makes a card rather than activating
+    /// one, so [`Hit::card`] answers `None` for it and no caller can mistake it
+    /// for a tab that exists.
+    NewCard,
     /// The application zone with nothing on it: past the last card, or the gap
     /// between two of them.
     Desktop,
@@ -352,6 +359,11 @@ pub fn hit_test(
 
     // Nothing covers the middle zone, so the cards are what is under the point.
     let layout = card_columns(zones.apps, metrics, tabs.len(), tabs.active_index());
+    // Asked before the cards only because it cannot overlap one — the slot is a
+    // column like any other and the gap between columns keeps them apart.
+    if layout.add.is_some_and(|slot| slot.contains(point)) {
+        return Hit::NewCard;
+    }
     for (n, card) in layout.cards.iter().enumerate() {
         if !card.contains(point) {
             continue;
@@ -388,9 +400,11 @@ mod tests {
 
     /// [`hit_test`] for the cases that are about bars and windows.
     ///
-    /// An empty strip means the middle zone has no cards on it, so those tests
-    /// keep asking exactly what they asked before the cards arrived, and
-    /// [`Hit::Desktop`] still means "nothing here".
+    /// An empty strip means the middle zone has no *cards* on it, so those tests
+    /// keep asking exactly what they asked before the cards arrived. It is not
+    /// empty of everything: the `[+]` slot is always there, centred when it is
+    /// the only column, so [`Hit::Desktop`] now means "nothing here except
+    /// possibly that".
     fn hit(z: &Zones, placed: &[Placed], chips: usize, point: Point) -> Hit {
         hit_test(
             z,
@@ -456,10 +470,19 @@ mod tests {
     fn the_gap_between_two_tiles_is_desktop_not_a_window() {
         // The bug this guards: a hit test that snaps to the nearest window makes
         // the gap between tiles focus one of them at random.
+        //
+        // Not `Hit::Desktop` any more, and that is the point of saying it this
+        // way: an empty strip still shows the `[+]` slot, centred, which is
+        // exactly where the gap between two tiles falls. What must never happen
+        // is a window — what is behind the gap otherwise is this test's business
+        // to ignore.
         let (_, _, placed) = two_windows();
         let gap_x = (placed[0].rect.right() + placed[1].rect.x()) / 2;
         let p = Point::new(gap_x, placed[0].rect.y() + 10);
-        assert_eq!(hit(&monitor(), &placed, 2, p), Hit::Desktop);
+        assert!(!matches!(
+            hit(&monitor(), &placed, 2, p),
+            Hit::Window { .. }
+        ));
     }
 
     #[test]
@@ -731,6 +754,28 @@ mod tests {
         // and must not read as the shortcut above it.
         let below = Point::new(card.x() + card.w() / 2, card.bottom() - 2);
         assert_eq!(hit_test(&z, &[], 0, &tabs, &m, below), Hit::Card(1));
+    }
+
+    #[test]
+    fn pressing_the_new_card_slot_is_not_pressing_a_card() {
+        // It is laid out as the strip's last column, so the danger is that it
+        // reads as a card at index `len()` — a tab that does not exist. Every
+        // point of it answers `NewCard`, and `Hit::card` refuses it, so no caller
+        // can index the strip with it.
+        let (z, m) = (monitor(), Metrics::default());
+        let tabs = strip(3, 0);
+        let slot = card_columns(z.apps, &m, tabs.len(), tabs.active_index())
+            .add
+            .expect("the slot");
+        for (dx, dy) in [(1, 1), (slot.w() / 2, slot.h() / 2), (slot.w() - 1, 20)] {
+            let p = Point::new(slot.x() + dx, slot.y() + dy);
+            let hit = hit_test(&z, &[], 0, &tabs, &m, p);
+            assert_eq!(hit, Hit::NewCard, "at {dx},{dy}");
+            assert_eq!(hit.card(), None);
+        }
+        // And the gap before it belongs to neither.
+        let p = Point::new(slot.x() - 1, slot.y() + 20);
+        assert_eq!(hit_test(&z, &[], 0, &tabs, &m, p), Hit::Desktop);
     }
 
     #[test]
