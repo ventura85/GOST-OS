@@ -1364,6 +1364,65 @@ offset w jednostkach jest tym, czego wymaga podążanie 1:1), D-044, D-046
 
 ---
 
+## D-048 — Kasowanie karty: w trybie edycji, bez pytania, z jednym miejscem cofania
+**Status:** ✅ **PRZYJĘTA** (2026-08-05) w części semantyki; **wejście w tryb edycji OTWARTE**
+(rekomendacja niżej). Niewdrożona.
+
+**Kontekst:** `gostos.md` §B **nie mówi o kasowaniu kart ani słowem** — wymienia tryb edycji
+(zmiana kolejności), przypinanie i `[+] Nowa karta`. To jest luka w specyfikacji, nie
+zapomniana implementacja, więc odpowiedź musi zostać zapisana, zanim ktokolwiek ją założy
+w kodzie. Model już to potrafi i ma testy: `TabStrip::remove` trzyma aktywny indeks w zakresie,
+zdejmuje przypięcie znikającej karty (D-009) i odmawia nieznanego `TabId`. **Cała praca jest
+po stronie interakcji.**
+
+**Decyzja 1 — kasowanie mieszka w trybie edycji**, nie jako `[×]` stale obecny w nagłówku.
+
+1. **Specyfikacja już wymyśliła to miejsce.** Tryb edycji istnieje dla zmiany kolejności kart,
+   a to jest ta sama klasa czynności: zmieniasz **pasek**, zamiast go używać. Reorder,
+   przypięcie i kasowanie rozrzucone po trzech mechanizmach to trzy rzeczy do wytłumaczenia
+   zamiast jednej.
+2. **Stały `[×]` w nagłówku to karta skasowana przypadkiem pierwszego dnia.** Nagłówek ma
+   48 jednostek, bo jest celem dotykowym (D-020); cel dotykowy z akcją niszczącą tuż obok
+   nazwy karty jest pułapką. Na monitorze uszłoby, na telefonie nie.
+3. **To jedyny wariant, który nie wymaga nowego widżetu.** Menu kontekstowe to cały system
+   popupów; okno potwierdzenia to modal w przestrzeni powłoki — a machineria z D-025 („dialogi
+   pływają wyśrodkowane nad rodzicem") jest dla **klientów**, nie dla nas. Tryb edycji to stan
+   boolowski i inny zestaw rysowanych prostokątów.
+
+**Decyzja 2 — kasowanie nie pyta, ale jest odwracalne.** Wejście w tryb edycji **jest**
+potwierdzeniem: to już dwie świadome czynności, a okno „na pewno?" byłoby trzecią i kosztowałoby
+widżet zbudowany dla jednego zastosowania. Zamiast pytania — **cofanie**.
+
+**Decyzja 3 — bufor cofania wchodzi do modelu od razu, zanim powstanie UI do cofania.** Jedno
+pole: ostatnio usunięta karta razem z indeksem, z którego zniknęła. Powód jest ten sam, dla
+którego kolekcja wyjść i transformacja per wyjście weszły w M1, choć wyjście było jedno:
+**dorobienie tego później jest zmianą modelu danych, a nie dopisaniem funkcji.** Dziś to jedno
+pole i test; jutro to tylko podpięcie skrótu.
+
+**Czego świadomie nie rozdzielamy:** karta pusta i karta pełna kasują się **tak samo**. Reguła
+z wyjątkiem to dwie reguły, a „czasem pyta, czasem nie" jest gorsze niż „nigdy nie pyta".
+Karta to układ skrótów (D-008), nie dane — na dysku nic nie ginie, a kosztem pomyłki jest
+ponowne ułożenie kafli, nie utrata plików.
+
+**Ładna konsekwencja, wynikająca z `[+]`:** **da się skasować ostatnią kartę**, i nie jest to
+przypadek brzegowy do obsłużenia. Pusty pasek jest pełnoprawnym stanem od chwili, gdy gniazdo
+`[+] Nowa karta` stało się kolumną paska — bez niego skasowanie ostatniej karty dawałoby czarną
+pustkę bez wyjścia.
+
+**Otwarte, do rozstrzygnięcia razem z implementacją — jak wchodzi się w tryb edycji.**
+Specyfikacja milczy, a bez wejścia nie ma czego przetestować, więc to nie jest praca na potem.
+Rekomendacja: **długie przytrzymanie karty** jako droga dotykowa (D-020 wymienia je wśród trzech
+gestów bezpośrednich, więc nie wprowadza nowego słownika) plus skrót jako droga klawiaturowa.
+Mysz używa tego samego przytrzymania, więc prawy przycisk nie musi jeszcze nic znaczyć.
+**Koszt do policzenia przed decyzją:** przytrzymanie wymaga zegara w calloop — tego samego
+mechanizmu co zegar w pasku, a więc bez łamania zera renderowania w spoczynku, bo timer chodzi
+wyłącznie z wciśniętym palcem.
+
+**Odniesienie:** `gostos.md` §B (luka), D-008, D-009, D-020, D-025 (dlaczego *nie* dialog),
+D-041 (skrót wymaga wpisu w tablicy), D-044, D-046, D-047
+
+---
+
 ## Stan rozstrzygnięć (2026-08-01)
 
 **Wszystkie decyzje blokujące start są zamknięte.** M0 może ruszyć.

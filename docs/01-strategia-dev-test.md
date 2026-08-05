@@ -675,7 +675,7 @@ plików XFCE w `menu_start/` pojawia się w menu bez restartu; uruchomienie apli
 **Stan M3 (2026-08-02): zaczęte od brzegów, sedno zablokowane decyzjami.**
 **Odblokowane i w dużej części zrobione (2026-08-05)** — punkty 3–7 niżej. Zostają: ikony
 na kaflach, kafel żywy (D-033 krok 2), ikony funkcyjne w nagłówku, tryb edycji, przypinanie,
-skrót klawiszowy na nową kartę i całe Menu Start.
+skrót klawiszowy na nową kartę, **tryb edycji z kasowaniem karty (D-048)** i całe Menu Start.
 
 Zrobione:
 
