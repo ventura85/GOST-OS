@@ -1,7 +1,7 @@
 //! Painting the shell itself: the two bars and the tab slider.
 //!
-//! Text is here now (the clock, and the caption of every dead tile), but the
-//! rule it arrived under still holds: an element whose picture is not ready is
+//! Text is here now (the clock, every card's name, and the caption of every dead
+//! tile), but the rule it arrived under still holds: an element whose picture is not ready is
 //! drawn as the block of space it will occupy. A tile's icon is such a block
 //! today — the layout can be judged before any icon theme is allowed to confuse
 //! the picture.
@@ -16,7 +16,7 @@
 use crate::text::{Align, Primitive, SurfaceSlot, TextRenderer, TextRun};
 use crate::{Canvas, Rgba};
 use gostui_core::geometry::Rect;
-use gostui_core::shell::{card_columns, layout_tiles, tile_face, Zones};
+use gostui_core::shell::{card_columns, card_header, card_title, layout_tiles, tile_face, Zones};
 use gostui_core::tab::TabStrip;
 use gostui_core::theme::{Fonts, Theme};
 
@@ -127,6 +127,27 @@ fn push(out: &mut Vec<Primitive>, rect: Rect, colour: Rgba) {
     }
 }
 
+/// A line of text in a box, dropped when there is nothing to set.
+///
+/// Empty runs are filtered here for the same reason degenerate rectangles are:
+/// resolving one costs a shaping call and a cache lookup per frame and produces
+/// no pixels. It also keeps a property the golden images rest on — no names
+/// means no `Text` in the list at all, rather than a list of runs that happen to
+/// draw nothing.
+fn push_text(out: &mut Vec<Primitive>, area: Rect, text: &str, size: i32, colour: Rgba, f: &Fonts) {
+    if text.is_empty() || area.w() <= 0 || area.h() <= 0 {
+        return;
+    }
+    out.push(Primitive::Text(TextRun {
+        area,
+        text: text.to_string(),
+        size,
+        colour,
+        family: f.ui.clone(),
+        align: Align::Centre,
+    }));
+}
+
 /// An outline `t` units wide, drawn inside `rect` — four fills, no new concept.
 fn push_outline(out: &mut Vec<Primitive>, rect: Rect, t: i32, colour: Rgba) {
     let t = t.max(1);
@@ -230,20 +251,28 @@ fn cards(out: &mut Vec<Primitive>, area: Rect, tabs: &TabStrip, theme: &Theme) {
         let index = layout.first + n;
         let active = index == tabs.active_index();
         push(out, *card, if active { p.card_active } else { p.card });
-        if active {
-            push_outline(out, *card, m.focus_width, p.accent);
+        // The header: the bar, then the card's name in it. A card that says
+        // nothing is a column of shortcuts with no reason to be a card, and an
+        // empty bar over one reads as a heading that failed to load.
+        let tab = tabs.iter().nth(index);
+        push(out, card_header(*card, m), p.chip);
+        if let (Some(area), Some(t)) = (
+            card_title(*card, m, Fonts::line_height(theme.fonts.size_card)),
+            tab,
+        ) {
+            push_text(
+                out,
+                area,
+                &t.name,
+                theme.fonts.size_card,
+                p.text,
+                &theme.fonts,
+            );
         }
-        // The header, where the card's name goes when the middle zone gets text.
-        push(
-            out,
-            Rect::new(card.x(), card.y(), card.w(), m.card_header),
-            p.chip,
-        );
         // A dead tile is an icon and a name (D-033). The icon has no pixels yet
         // — that is its own step, with an icon theme and a cache behind it — so
         // what a tile shows today is its name, cut to the tile by the text stack
         // when the application chose a long one.
-        let tab = tabs.iter().nth(index);
         let items = tab.map_or(0, |t| t.items.len());
         let line = Fonts::line_height(theme.fonts.size_tile);
         for (i, tile) in layout_tiles(*card, m, items).iter().enumerate() {
@@ -253,14 +282,21 @@ fn cards(out: &mut Vec<Primitive>, area: Rect, tabs: &TabStrip, theme: &Theme) {
             else {
                 continue;
             };
-            out.push(Primitive::Text(TextRun {
-                area: caption,
-                text: item.name.clone(),
-                size: theme.fonts.size_tile,
-                colour: p.text,
-                family: theme.fonts.ui.clone(),
-                align: Align::Centre,
-            }));
+            push_text(
+                out,
+                caption,
+                &item.name,
+                theme.fonts.size_tile,
+                p.text,
+                &theme.fonts,
+            );
+        }
+        // The focus ring goes **last**, after everything the card contains.
+        // Drawn before the header — which is where it was until the header got a
+        // name and the gap became visible — the header's fill paints over its
+        // top edge, and a rectangle missing one side does not read as a frame.
+        if active {
+            push_outline(out, *card, m.focus_width, p.accent);
         }
     }
 }
@@ -384,13 +420,75 @@ mod tests {
     }
 
     #[test]
-    fn a_card_with_no_shortcuts_puts_no_text_in_the_middle_zone() {
+    fn the_focus_ring_is_drawn_over_the_header_and_not_under_it() {
+        // Found by looking, not by testing: the ring was pushed straight after
+        // the card fill, so the header's own fill painted over its top edge and
+        // the active card wore a frame with three sides. Nobody noticed while
+        // the header was an anonymous bar; the name made it a thing you look at.
+        let (list, _, theme) = card_with_items(4);
+        let fills: Vec<(usize, &Fill)> = list
+            .iter()
+            .enumerate()
+            .filter_map(|(i, p)| match p {
+                Primitive::Fill(f) => Some((i, f)),
+                _ => None,
+            })
+            .collect();
+        let header = fills
+            .iter()
+            .find(|(_, f)| f.colour == theme.palette.chip)
+            .expect("the header bar")
+            .0;
+        let ring = fills
+            .iter()
+            .find(|(_, f)| f.colour == theme.palette.accent)
+            .expect("the focus ring")
+            .0;
+        assert!(ring > header, "ring at {ring}, header at {header}");
+    }
+
+    #[test]
+    fn nothing_named_means_no_text_in_the_middle_zone_at_all() {
         // What the golden images rest on: with nothing named, the middle zone
         // contains no glyphs, so those files stay identical on this station and
-        // in CI. If a caption ever appeared for an empty card, they would start
+        // in CI. If text ever appeared for an unnamed card, they would start
         // disagreeing for a reason that has nothing to do with the shell.
-        let (list, _, _) = card_with_items(0);
+        //
+        // The zone has **two** sources of text now — the card's name and each
+        // tile's caption — so this asks about both, and a third one added later
+        // has to be added here too.
+        let mut tabs = TabStrip::new();
+        let id = tabs.add("");
+        let tab = tabs.get_mut(id).expect("just added");
+        for i in 0..4 {
+            tab.items
+                .push(gostui_core::tab::LauncherItem::new(format!("a{i}"), ""));
+        }
+        let theme = theme_fixture();
+        let z = zones(Rect::new(0, 0, 1920, 1080), BarHeights::default());
+        let view = ShellView {
+            zones: z,
+            tabs: &tabs,
+            windows: &[],
+            focused_window: None,
+            clock: None,
+            surfaces: &[],
+        };
+        let list = display_list(&view, &theme);
         assert!(!list.iter().any(|p| matches!(p, Primitive::Text(_))));
+
+        // And the geometry it guards is really there: the same scene with names
+        // draws them, so the images pin down the layout that ships rather than
+        // one where the header happens to be skipped.
+        let (named, _, _) = card_with_items(4);
+        assert_eq!(
+            named
+                .iter()
+                .filter(|p| matches!(p, Primitive::Text(_)))
+                .count(),
+            5,
+            "the card's name plus one caption per tile"
+        );
     }
 
     #[test]

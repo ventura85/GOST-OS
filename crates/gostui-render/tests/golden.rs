@@ -23,12 +23,15 @@
 //!
 //! # Why there is no text in any of these
 //!
-//! The shell draws two kinds of text — the clock and the caption of every dead
-//! tile — and every scene here is built without either: `clock: None`, and
-//! shortcuts with no name. Both are **data**, not a switch that changes how the
-//! shell draws: the caption strip is still reserved inside each tile and the
-//! icon square is still sized around it, so what these images pin down is the
-//! layout that ships. Only the glyphs are missing. That is
+//! The shell draws three kinds of text — the clock, the caption of every dead
+//! tile, and the name in every card's header — and every scene here is built
+//! without any of them: `clock: None`, shortcuts with no name, cards with no
+//! name. All three are **data**, not a switch that changes how the shell draws:
+//! the caption strip is still reserved inside each tile, the icon square is
+//! still sized around it, and the header bar is still drawn and still has the
+//! name centred in it, so what these images pin down is the layout that ships.
+//! Only the glyphs are missing. **Anything new with text goes on this list** —
+//! take it away from the scenes with data, never with a flag. That is
 //! deliberate twice over: text differs by one bit between the two paths (D-005),
 //! and glyphs would tie these files to the font versions of whatever machine
 //! rendered them — which would make CI disagree with a developer's laptop for
@@ -62,7 +65,13 @@ struct Scene {
     /// Logical size. The physical image is this multiplied by `scale`.
     size: (i32, i32),
     scale: i32,
-    tabs: &'static [&'static str],
+    /// How many cards the strip holds. A **count**, not names: the middle zone
+    /// draws the card's name in its header now, and these images stay free of
+    /// glyphs the way they stay free of a clock — by the data the scene is
+    /// given, never by a switch that changes what is drawn. The header bar is
+    /// reserved and the name is centred in it exactly as in production; only
+    /// the glyphs are absent.
+    cards: usize,
     /// Index of the active tab, applied by cycling from the first.
     active: usize,
     /// Shortcuts given to every card. Without these the cards draw empty and
@@ -82,7 +91,7 @@ fn scenes() -> Vec<Scene> {
             name: "monitor",
             size: (1920, 1080),
             scale: 1,
-            tabs: &["Pliki", "Praca", "Rozrywka"],
+            cards: 3,
             active: 1,
             items: 5,
             windows: &["Terminal", "Firefox"],
@@ -97,17 +106,7 @@ fn scenes() -> Vec<Scene> {
             name: "monitor-przewiniety",
             size: (1920, 1080),
             scale: 1,
-            tabs: &[
-                "Pliki",
-                "Praca",
-                "Rozrywka",
-                "Internet",
-                "Ustawienia",
-                "Kod",
-                "Muzyka",
-                "Sieć",
-                "Dyski",
-            ],
+            cards: 9,
             active: 8,
             items: 3,
             windows: &[],
@@ -120,7 +119,7 @@ fn scenes() -> Vec<Scene> {
             name: "telefon-pion",
             size: (360, 800),
             scale: 2,
-            tabs: &["Pliki", "Praca"],
+            cards: 2,
             active: 0,
             items: 4,
             windows: &["Terminal"],
@@ -133,7 +132,7 @@ fn scenes() -> Vec<Scene> {
             name: "waski",
             size: (420, 320),
             scale: 1,
-            tabs: &["Pliki"],
+            cards: 1,
             active: 0,
             items: 2,
             windows: &[],
@@ -145,7 +144,7 @@ fn scenes() -> Vec<Scene> {
             name: "pusty",
             size: (1280, 720),
             scale: 1,
-            tabs: &[],
+            cards: 0,
             active: 0,
             items: 0,
             windows: &[],
@@ -156,8 +155,8 @@ fn scenes() -> Vec<Scene> {
 
 fn render(scene: &Scene) -> Canvas {
     let mut tabs = TabStrip::new();
-    for name in scene.tabs {
-        let id = tabs.add(*name);
+    for _ in 0..scene.cards {
+        let id = tabs.add("");
         let tab = tabs.get_mut(id).expect("just added");
         for i in 0..scene.items {
             // Nameless on purpose, the same way every scene sets `clock: None`:

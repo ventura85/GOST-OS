@@ -384,8 +384,56 @@ pub fn tile_face(tile: Rect, line: i32) -> TileFace {
     }
 }
 
-/// Breathing room on each side of a tile's caption, in logical units.
+/// Breathing room on each side of text set inside a box, in logical units.
+///
+/// Shared by the tile caption and the card's header for one reason: text that
+/// runs edge to edge is indistinguishable from text the box cut off by
+/// accident, and saying "there is more of this name" on purpose is the whole
+/// job of the ellipsis.
 const CAPTION_PAD: i32 = 4;
+
+/// The bar across the top of a card, where its name and its function icons go.
+///
+/// Full width and full [`Metrics::card_header`] height, including on a card
+/// that hangs off the zone (D-047) — the rasteriser cuts it, so a sliver shows
+/// part of a header rather than a header of its own size.
+pub fn card_header(card: Rect, m: &Metrics) -> Rect {
+    Rect::new(card.x(), card.y(), card.w(), m.card_header.max(0))
+}
+
+/// Where a card's name is set inside its header, or `None` when the header is
+/// too short to hold a line of it.
+///
+/// Dropped rather than shrunk, which is the rule the whole shell already
+/// follows: [`top_bar_layout`] drops elements, [`layout_tiles`] drops tiles and
+/// [`tile_face`] drops the caption. Half-height glyphs are not a smaller name,
+/// they are a smudge.
+///
+/// The line is **centred vertically** in the header rather than sat on its
+/// baseline: the header is a touch target 48 units tall (D-020) holding one
+/// short word, and text pinned to its top edge in a box that size reads as
+/// having slipped.
+///
+/// `line` comes from the caller for the same reason it does in [`tile_face`] —
+/// core does not know what a font is (D-016), only that something asked it to
+/// reserve that many units.
+pub fn card_title(card: Rect, m: &Metrics, line: i32) -> Option<Rect> {
+    let header = card_header(card, m);
+    if line <= 0 || line > header.h() || header.w() <= 0 {
+        return None;
+    }
+    let pad = CAPTION_PAD.min(header.w() / 8);
+    let w = header.w() - 2 * pad;
+    if w <= 0 {
+        return None;
+    }
+    Some(Rect::new(
+        header.x() + pad,
+        header.y() + (header.h() - line) / 2,
+        w,
+        line,
+    ))
+}
 
 /// Place the top bar's elements, dropping what does not fit.
 ///
@@ -916,6 +964,56 @@ mod tests {
                 "{r:?} leaves {tile:?}"
             );
         }
+    }
+
+    #[test]
+    fn the_card_name_is_centred_in_the_header_and_never_touches_its_edges() {
+        let m = Metrics::default();
+        let card = card_columns(apps(1920, 1080), &m, 3, 0).cards[0];
+        let header = card_header(card, &m);
+        assert_eq!((header.x(), header.y()), (card.x(), card.y()));
+        assert_eq!((header.w(), header.h()), (card.w(), m.card_header));
+
+        let title = card_title(card, &m, 18).expect("a 48-unit header holds a line");
+        // Room on both sides, so a name cut by the text stack reads as cut on
+        // purpose — the lesson the tile caption already paid for.
+        assert!(title.x() > header.x());
+        assert_eq!(title.x() - header.x(), header.right() - title.right());
+        // And centred vertically rather than sat on the header's top edge.
+        assert_eq!(title.y() - header.y(), header.bottom() - title.bottom());
+        assert!(title.h() == 18 && title.bottom() <= header.bottom());
+    }
+
+    #[test]
+    fn a_header_too_short_for_a_line_drops_the_name_rather_than_shrinking_it() {
+        // Same rule as `tile_face`, `layout_tiles` and `top_bar_layout`: what
+        // does not fit goes, because half-height glyphs are not a smaller name.
+        let m = Metrics::default();
+        let card = card_columns(apps(1920, 1080), &m, 3, 0).cards[0];
+        assert_eq!(card_title(card, &m, m.card_header + 1), None);
+        assert_eq!(card_title(card, &m, 0), None);
+        // A degenerate card answers instead of producing a negative box.
+        assert_eq!(card_title(Rect::new(0, 0, 0, 0), &m, 18), None);
+    }
+
+    #[test]
+    fn the_header_of_a_card_hanging_off_the_zone_hangs_off_with_it() {
+        // The sliver shows part of a header, not a header of its own size — the
+        // same reason the card keeps its full width in D-047. A header measured
+        // against the visible strip would put the neighbour's name in a place
+        // the neighbour's name is not.
+        let m = Metrics::default();
+        let area = apps(360, 780);
+        let l = card_columns(area, &m, 3, 1);
+        let cut = l.cards[0];
+        assert!(cut.x() < area.x());
+        assert_eq!(card_header(cut, &m).w(), card_header(l.cards[1], &m).w());
+        let (a, b) = (
+            card_title(cut, &m, 18).expect("cut"),
+            card_title(l.cards[1], &m, 18).expect("whole"),
+        );
+        assert_eq!((a.w(), a.h()), (b.w(), b.h()));
+        assert_eq!(a.x() - cut.x(), b.x() - l.cards[1].x());
     }
 
     #[test]

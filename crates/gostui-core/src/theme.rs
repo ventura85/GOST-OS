@@ -345,6 +345,10 @@ pub struct Fonts {
     pub size_bar: i32,
     /// Size of a tile caption.
     pub size_tile: i32,
+    /// Size of the name in a card's header. Its own knob rather than the bar's,
+    /// because it is a heading over a column and the bars are a status line —
+    /// they have no reason to change together.
+    pub size_card: i32,
     /// Size of the value on a live tile — the number the tile exists to show
     /// (D-033), so it is deliberately not the same size as the caption.
     pub size_tile_value: i32,
@@ -357,6 +361,7 @@ impl Default for Fonts {
             mono: String::new(),
             size_bar: 14,
             size_tile: 12,
+            size_card: 14,
             size_tile_value: 20,
         }
     }
@@ -396,6 +401,7 @@ impl Fonts {
         };
         clamp("size_bar", &mut out.size_bar);
         clamp("size_tile", &mut out.size_tile);
+        clamp("size_card", &mut out.size_card);
         clamp("size_tile_value", &mut out.size_tile_value);
         (out, log)
     }

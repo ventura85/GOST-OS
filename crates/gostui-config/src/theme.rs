@@ -140,6 +140,7 @@ pub struct FontsFile {
     pub mono: Option<String>,
     pub size_bar: Option<i32>,
     pub size_tile: Option<i32>,
+    pub size_card: Option<i32>,
     pub size_tile_value: Option<i32>,
 }
 
@@ -235,6 +236,7 @@ impl ThemeFile {
             mono: f.mono.unwrap_or(bf.mono),
             size_bar: f.size_bar.unwrap_or(bf.size_bar),
             size_tile: f.size_tile.unwrap_or(bf.size_tile),
+            size_card: f.size_card.unwrap_or(bf.size_card),
             size_tile_value: f.size_tile_value.unwrap_or(bf.size_tile_value),
         };
 
@@ -291,6 +293,7 @@ impl ThemeFile {
                 mono: Some(f.mono.clone()),
                 size_bar: Some(f.size_bar),
                 size_tile: Some(f.size_tile),
+                size_card: Some(f.size_card),
                 size_tile_value: Some(f.size_tile_value),
             },
         }
