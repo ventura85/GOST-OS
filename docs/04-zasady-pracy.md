@@ -200,7 +200,7 @@ to scenom danymi**, nie flagą.
 Co ze slidera zostaje: **D-033 krok 2 (kafel żywy)** i **D-030** — przeczytać przed kodem;
 ikony na kaflach (Icon Theme Spec + SVG + cache z limitem — nowa zależność, więc wpis
 do rejestru **przed** kodem), ikony funkcyjne w nagłówku karty, skrót na nową kartę,
-resize przeciąganiem krawędzi, tryb edycji. **D-008 i D-009** realizuj, zaznaczając jawnie,
+resize przeciąganiem krawędzi, **tryb edycji wraz z kasowaniem karty (D-048)**. **D-008 i D-009** realizuj, zaznaczając jawnie,
 że bierzesz rekomendację z rejestru.
 
 **Trzy rzeczy zostały świadomie niezrobione i nie są zapomniane:** `linux-dmabuf` nie jest
