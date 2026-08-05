@@ -1276,6 +1276,13 @@ to, ile ich widać.
 1. **Skrawek przestaje być funkcją do zaprojektowania.** Karta, która się nie mieści, jest
    rysowana przycięta do krawędzi strefy. To *jest* „skrawek jako wizualna podpowiedź, że jest
    kolejna karta" z §B. **Odstępstwo od specyfikacji znika — `gostos.md` nie wymaga zmiany.**
+
+   > **Sprostowanie (2026-08-05):** to zdanie było prawdziwe dopiero od D-047. Do tej daty
+   > `card_columns` **zwężał prostokąt** karty wychodzącej poza strefę, a `layout_tiles`
+   > odpowiadał poprawnie na pudełko, które dostał: za wąskie na jedną kolumnę kafli, więc
+   > zero kafli. Skrawek nie był kartą przyciętą, tylko **przeliczoną od nowa** — rysował się
+   > pusty i nie podpowiadał niczego. Argument, którym ta decyzja zamknęła D-031, obronił się
+   > więc dopiero po naprawie, nie w dniu zapisania.
 2. **Konflikt gestów z D-030 znika.** Istniał wyłącznie przy tablicy kafli na całą szerokość,
    przewijanej w bok. Przy kolumnach osie są rozłączne: **w bok = przewijanie kart, w pionie =
    przewijanie kafli w karcie.**
@@ -1312,7 +1319,48 @@ uruchamianie musi wiedzieć który), a `Hit::card` odpowiada na osobne pytanie �
 Reguła siedzi w core i ma test chodzący po każdym punkcie każdej kolumny.
 
 **Odniesienie:** `gostos.md` §B (spełnione, bez odstępstwa), D-007, D-008, D-009, D-016, D-030,
-D-031 (zastąpiona), D-032, D-044
+D-031 (zastąpiona), D-032, D-044, D-047
+
+---
+
+## D-047 — Pasek kart wyśrodkowany na aktywnej karcie, z zaciskiem na końcach
+**Status:** ✅ **PRZYJĘTA** (2026-08-05) — **uzupełnia D-046**, wdrożona
+
+**Kontekst:** D-046 postawiła kolumny, ale nie powiedziała, **gdzie stoi pasek**. Odpowiedź
+domyślna — pasek przy lewej krawędzi, przewijany dopiero wtedy, gdy aktywna karta wypadłaby
+poza ekran — dawała dwa widoczne skutki. Na monitorze cztery karty zajmowały 1076 z 1920
+jednostek i **844 zostawało jako czarna dziura po prawej**. Na telefonie pionowo, gdzie mieści
+się jedna karta, sąsiad pokazywał się **tylko z prawej strony**, a `gostos.md` §B pisze
+o skrawkach *po bokach*, w liczbie mnogiej. Użytkownik: „musimy jakoś środkować te karty (…)
+środkowa karta to ta pierwsza aktywna, więc i na telefonie będzie widoczna".
+
+**Decyzja — trzy reguły, jedna funkcja:**
+
+1. **Aktywna karta stoi na środku strefy.** Przesunięcie paska liczone jest w jednostkach,
+   nie w całych kartach, więc sąsiedzi wystają poza ekran obiema stronami i widać ich skrawki.
+2. **Na końcach pasek jest zaciśnięty**, nie pływa. Pierwsza karta nie wchodzi na środek,
+   zostawiając pustkę po lewej: puste miejsce tam, gdzie oko spodziewa się karty, czyta się
+   jako usterka, nie jako układ, a powłoka stawiająca gęstość nad przestronność (D-044) nie ma
+   z niego pożytku. **Zacisk ratuje też regułę z D-007** — `Super+←` na pierwszej karcie ma nic
+   nie przesuwać i nie rysować klatki; przy pasku pływającym ten skrót nadal zmieniałby offset,
+   czyli przytrzymana strzałka znów byłaby pętlą renderującą.
+3. **Pasek węższy niż strefa jest wyśrodkowany w całości.** Nadmiar wydany na jedną stronę jest
+   dziurą; rozdzielony na dwie jest marginesem.
+
+**Cena, świadomie przyjęta:** przy przewijaniu skrawek bywa **kilkujednostkowy** — pasek
+przesuwa się płynnie, więc karta wchodzi w kadr od zera. Pytanie „czy wprowadzać minimalną
+szerokość widocznego skrawka" pozostaje otwarte i **staje się przez tę decyzję częstsze**,
+ale nie blokuje: włos na krawędzi jest uczciwym wynikiem przewijania ciągłego, nie usterką.
+
+**Konsekwencja dla geometrii, ważniejsza niż samo wyśrodkowanie:** prostokąty kart są odtąd
+**pełnej szerokości, także te wystające poza strefę**, a przycina je rasteryzator
+(`fill_rect` i `blend_image` klipują z każdej strony, więc **do listy wyświetlania nie wchodzi
+żadne nowe pojęcie** i obie ścieżki renderera dziedziczą to za darmo). To właśnie ta zmiana
+naprawiła pusty skrawek opisany w sprostowaniu przy D-046 — i jest jedynym powodem, dla
+którego kafle w karcie przyciętej leżą tam, gdzie w każdej innej.
+
+**Odniesienie:** `gostos.md` §B, D-007, D-021 (przesuwanie palcem pójdzie tą samą arytmetyką —
+offset w jednostkach jest tym, czego wymaga podążanie 1:1), D-044, D-046
 
 ---
 
