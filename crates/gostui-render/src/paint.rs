@@ -16,7 +16,9 @@
 use crate::text::{Align, Primitive, SurfaceSlot, TextRenderer, TextRun};
 use crate::{Canvas, Rgba};
 use gostui_core::geometry::Rect;
-use gostui_core::shell::{card_columns, card_header, card_title, layout_tiles, tile_face, Zones};
+use gostui_core::shell::{
+    card_columns, card_header, card_title, layout_tiles, plus_mark, tile_face, Zones,
+};
 use gostui_core::tab::TabStrip;
 use gostui_core::theme::{Fonts, Theme};
 
@@ -297,6 +299,17 @@ fn cards(out: &mut Vec<Primitive>, area: Rect, tabs: &TabStrip, theme: &Theme) {
         // top edge, and a rectangle missing one side does not read as a frame.
         if active {
             push_outline(out, *card, m.focus_width, p.accent);
+        }
+    }
+
+    // The `[+] Nowa karta` slot closes the strip (`gostos.md` §B). Dimmer than a
+    // card, because it is not one: it holds nothing and activating it is not
+    // what pressing it does. The mark is two rectangles — see `plus_mark`.
+    if let Some(slot) = layout.add {
+        push(out, slot, p.card);
+        push(out, card_header(slot, m), p.chip);
+        for bar in plus_mark(slot, m).into_iter().flatten() {
+            push(out, bar, p.text_dim);
         }
     }
 }
@@ -762,7 +775,10 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_shell_paints_the_background_only() {
+    fn an_empty_shell_still_offers_a_way_to_make_a_card() {
+        // It used to paint the background and nothing else. A session with no
+        // cards is exactly where being shown how to make one is worth most, so
+        // the `[+]` slot is there — alone, and therefore centred.
         let tabs = TabStrip::new();
         let area = Rect::new(0, 0, 640, 480);
         let view = ShellView {
@@ -775,8 +791,12 @@ mod tests {
         };
         let mut c = Canvas::new(640, 480, 1).unwrap();
         paint(&mut c, &view, &theme_fixture(), &mut TextRenderer::new(), 1);
-        // Middle of the application area stays desktop-coloured.
-        let i = ((240 * 640) + 320) * 4;
-        assert_eq!(c.pixels()[i], Palette::default().desktop.0);
+        let at = |x: usize, y: usize| c.pixels()[((y * 640) + x) * 4];
+        // Middle of the application area: the slot, one card wide.
+        assert_eq!(at(320, 240), Palette::default().card.0);
+        // Either side of it, still the desktop — the slot is a column, not a
+        // panel that grew to fill the zone.
+        assert_eq!(at(40, 240), Palette::default().desktop.0);
+        assert_eq!(at(600, 240), Palette::default().desktop.0);
     }
 }
