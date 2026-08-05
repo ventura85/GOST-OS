@@ -673,6 +673,9 @@ plików XFCE w `menu_start/` pojawia się w menu bez restartu; uruchomienie apli
 (w tym `Terminal=true`); restart kompozytora odtwarza układ kart 1:1; zmiana karty < 16 ms.
 
 **Stan M3 (2026-08-02): zaczęte od brzegów, sedno zablokowane decyzjami.**
+**Odblokowane i w dużej części zrobione (2026-08-05)** — punkty 3–5 niżej. Zostają: nazwa karty
+w nagłówku, ikony na kaflach, kafel żywy (D-033 krok 2), tryb edycji, przypinanie,
+`[+] Nowa karta` i całe Menu Start.
 
 Zrobione:
 
@@ -691,6 +694,14 @@ Zrobione:
    Sceny **nie zawierają tekstu** (zegar to jedyny tekst powłoki, więc `clock: None` usuwa
    glify) i dzięki temu wychodzą identycznie tutaj i na maszynie CI — sprawdzone, nie założone.
    Koszt: `check` w CI wydłużył się z ~57 s do ~1 min 36 s.
+3. **Karty jako kolumny (D-046)** — środkowa strefa rysowana i klikana z tych samych dwóch
+   funkcji w core; doszła piąta scena złota, `monitor-przewiniety`.
+4. **Nawigacja z klawiatury (D-007)** — `Super+←/→`, bez zawijania i bez klatki na końcach.
+5. **Podpis na kaflu (D-033 krok 1) i wyśrodkowanie paska (D-047)** — kafel mówi, czym jest,
+   a aktywna karta stoi na środku ze skrawkami po obu stronach. Przy okazji naprawiony skrawek:
+   do 2026-08-05 karta wychodząca poza strefę miała **zwężany prostokąt**, więc `layout_tiles`
+   nie mieścił w nim ani jednej kolumny kafli i skrawek rysował się pusty. Dziś prostokąty są
+   pełne, a przycina rasteryzator.
 
 **Czego nie zaczynać bez rozmowy:** dawniej był to sam slider, przez odstępstwo od `gostos.md` §B
 zapisane w D-031. **Odstępstwo zniknęło, nie zostało wynegocjowane** (2026-08-03): karta jako

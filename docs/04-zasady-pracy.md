@@ -101,10 +101,28 @@ się tylko ich liczba. `card_columns` i `layout_tiles` w `gostui-core::shell` li
 `paint.rs` ją tylko wypełnia, a `hit_test` czyta **te same dwie funkcje**. Liczba kolumn kafli
 w karcie też wynika z miejsca, nie z ustawienia — nigdzie w kodzie nie jest napisane „dwie".
 
+**Pasek stoi na aktywnej karcie, a na końcach jest zaciśnięty (D-047, 2026-08-05).**
+Przesunięcie liczone jest w jednostkach, nie w całych kartach, więc sąsiedzi wystają poza ekran
+**obiema stronami** — to jest skrawek „po bokach" z `gostos.md` §B, w liczbie mnogiej, a na
+telefonie pionowo jest to cała interakcja. Pierwsza karta **nie** wchodzi na środek zostawiając
+pustkę po lewej: pusto tam, gdzie oko czeka na kartę, czyta się jako usterka, a przy pasku
+pływającym `Super+←` na pierwszej karcie znów zmieniałby offset i przytrzymana strzałka byłaby
+pętlą renderującą (D-007). Pasek węższy od strefy jest wyśrodkowany w całości.
+
+**Prostokąt karty jest pełnej szerokości, nawet gdy wystaje poza strefę** — i to jest ta część
+D-047, która naprawiła coś starszego. Zwężanie prostokąta (tak było do 2026-08-05) podaje
+`layout_tiles` pudełko za wąskie na jedną kolumnę kafli, a on odpowiada poprawnie: zero kafli.
+Skrawek nie był więc kartą przyciętą, tylko **przeliczoną od nowa**, i rysował się pusty.
+Przycina rasteryzator (`fill_rect` i `blend_image` klipują z każdej strony), więc do listy
+wyświetlania nie wchodzi żadne nowe pojęcie i obie ścieżki dziedziczą to za darmo.
+**Nie zwężaj prostokątów w layoucie, żeby zmieściły się w kadrze** — obliczenie odpowie wtedy
+na inne pytanie, niż zadałeś, i będzie miało rację.
+
 **Blokada D-031 zniknęła i warto wiedzieć jak**, bo ten kształt sporu się powtórzy: „skrawki
 ze specyfikacji" kontra „pasek nazw" było źle postawione, bo **obie strony zakładały jedną kartę
 widoczną naraz** — a to jest model telefonu, nie pulpitu. Przy kartach jako kolumnach karta,
-która się nie mieści, jest rysowana przycięta, **i to jest skrawek z `gostos.md` §B**.
+która się nie mieści, jest rysowana przycięta, **i to jest skrawek z `gostos.md` §B**
+(zdanie prawdziwe dopiero od D-047 — patrz akapit wyżej).
 Odstępstwo przestało istnieć, specyfikacji nie trzeba było zmieniać, a konflikt gestów z D-030
 rozwiązał się sam (w bok = karty, w pionie = kafle). D-031 ma status ZASTĄPIONA.
 
