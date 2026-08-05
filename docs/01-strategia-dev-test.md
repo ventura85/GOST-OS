@@ -673,8 +673,8 @@ plików XFCE w `menu_start/` pojawia się w menu bez restartu; uruchomienie apli
 (w tym `Terminal=true`); restart kompozytora odtwarza układ kart 1:1; zmiana karty < 16 ms.
 
 **Stan M3 (2026-08-02): zaczęte od brzegów, sedno zablokowane decyzjami.**
-**Odblokowane i w dużej części zrobione (2026-08-05)** — punkty 3–5 niżej. Zostają: nazwa karty
-w nagłówku, ikony na kaflach, kafel żywy (D-033 krok 2), tryb edycji, przypinanie,
+**Odblokowane i w dużej części zrobione (2026-08-05)** — punkty 3–6 niżej. Zostają: ikony
+na kaflach, kafel żywy (D-033 krok 2), ikony funkcyjne w nagłówku, tryb edycji, przypinanie,
 `[+] Nowa karta` i całe Menu Start.
 
 Zrobione:
@@ -702,6 +702,11 @@ Zrobione:
    do 2026-08-05 karta wychodząca poza strefę miała **zwężany prostokąt**, więc `layout_tiles`
    nie mieścił w nim ani jednej kolumny kafli i skrawek rysował się pusty. Dziś prostokąty są
    pełne, a przycina rasteryzator.
+6. **Nazwa karty w nagłówku** — środkowa strefa mówi, co pokazuje. Przy okazji naprawiona
+   **ramka fokusu bez górnej krawędzi**: była wypychana przed wypełnieniem nagłówka, które
+   ją zamalowywało. Usterka istniała od pierwszej wersji kart i nie zauważył jej żaden test
+   ani żadne z pięciu zdjęć — dopiero nazwa zrobiła z nagłówka rzecz, na którą się patrzy.
+   Kolejność w liście wyświetlania ma odtąd własny test.
 
 **Czego nie zaczynać bez rozmowy:** dawniej był to sam slider, przez odstępstwo od `gostos.md` §B
 zapisane w D-031. **Odstępstwo zniknęło, nie zostało wynegocjowane** (2026-08-03): karta jako

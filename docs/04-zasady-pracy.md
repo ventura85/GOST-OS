@@ -44,11 +44,13 @@ kończącą sesję, osiągalną z dowolnego klienta (D-045).
 
 **Wygląd powłoki jest pilnowany obrazem, nie czyimś okiem (warunek D-010).**
 `crates/gostui-render/tests/golden/*.png` to pięć scen rysowanych ścieżką CPU i porównywanych
-co do piksela; zwykłe `cargo test` je uruchamia. **Żadna nie zawiera tekstu**, i od 2026-08-04
-utrzymują to **dwie** dane sceny, nie jedna: `clock: None` **oraz** skróty z pustą nazwą (powłoka
-rysuje już podpis na każdym kaflu). Obie są danymi, nie przełącznikiem — pasek podpisu jest
-rezerwowany jak na produkcji, więc obrazy pilnują prawdziwego layoutu i wychodzą identycznie
-na tej stacji i w CI (sprawdzone). Zmieniłeś wygląd celowo:
+co do piksela; zwykłe `cargo test` je uruchamia. **Żadna nie zawiera tekstu**, i utrzymują to
+**trzy** dane sceny, nie jedna: `clock: None`, skróty z pustą nazwą **oraz** karty z pustą nazwą
+(powłoka rysuje już podpis na kaflu i nazwę w nagłówku karty). Wszystkie trzy są danymi, nie
+przełącznikiem — pasek podpisu i pasek nagłówka są rezerwowane jak na produkcji, więc obrazy
+pilnują prawdziwego layoutu i wychodzą identycznie na tej stacji i w CI (sprawdzone).
+**Dokładasz cokolwiek z tekstem — dopisujesz to do tej listy i odbierasz scenom danymi.**
+Zmieniłeś wygląd celowo:
 
 ```bash
 GOSTUI_BLESS=1 cargo test -p gostui-render --test golden   # przepisuje wzorce
@@ -152,15 +154,33 @@ znaków), pierwsza prawdziwa nazwa aplikacji ujawnia od razu. **Szerokość jest
 cache'u** — bez niej ta sama nazwa w wąskim i szerokim kaflu dzieli obrazek, a wygrywa ten
 szeroki, czyli ten, który się wylewa.
 
-**Złote obrazy nadal nie zawierają ani jednego glifu** i to jest teraz utrzymywane dwoma
-danymi, nie jednym: `clock: None` **oraz** skróty z pustą nazwą. To są dane sceny, nie
-przełącznik zmieniający rysowanie — pasek podpisu jest rezerwowany tak samo jak na produkcji,
-więc te pliki pilnują prawdziwego layoutu, a zostają identyczne tu i w CI. Dodając cokolwiek
-z tekstem do środkowej strefy, **odbierz to scenom danymi**, nie flagą.
+**Karta ma nazwę w nagłówku (2026-08-05).** `card_header` i `card_title` w core, obok
+`tile_face` i z tych samych powodów; nazwa jest wyśrodkowana **w obu osiach** — w pionie, bo
+linia dosunięta do górnej krawędzi celu dotykowego wysokiego na 48 jednostek wygląda
+na zsuniętą, a w poziomie, bo karta wystająca poza strefę (D-047) pokazuje wtedy środek swojej
+nazwy zamiast niczego. Nagłówek za niski na linię **gubi nazwę zamiast ją zmniejszać**. Rozmiar
+czcionki ma własne pokrętło w motywie (`size_card`), bo nagłówek kolumny i pasek stanu nie mają
+powodu zmieniać się razem (D-032).
+
+**Ramka fokusu nie miała górnej krawędzi i nie miała jej od początku.** Była wypychana zaraz
+po wypełnieniu karty, więc **wypełnienie nagłówka ją zamalowywało** — prostokąt o trzech bokach
+nie czyta się jako ramka. Nikt tego nie widział, dopóki nagłówek był anonimowym paskiem; nazwa
+zrobiła z niego rzecz, na którą się patrzy. Ramka idzie teraz **ostatnia**, po wszystkim,
+co karta zawiera, i pilnuje tego test na kolejność, a nie czyjaś pamięć. **Kolejność w liście
+wyświetlania jest treścią, nie porządkiem zapisu** — jeśli dokładasz element rysowany
+po czymś, co ma być pod spodem, przesuń go, zamiast szukać innego koloru.
+
+**Złote obrazy nadal nie zawierają ani jednego glifu** i utrzymują to **trzy** dane, nie jedna:
+`clock: None`, skróty z pustą nazwą **oraz** karty z pustą nazwą (sceny trzymają *liczbę* kart,
+nie ich nazwy). To są dane sceny, nie przełącznik zmieniający rysowanie — paski podpisu
+i nagłówka są rezerwowane tak samo jak na produkcji, więc te pliki pilnują prawdziwego layoutu,
+a zostają identyczne tu i w CI. Dowód, że nazwa nie ruszyła geometrii: **obrazy przeszły bez
+błogosławieństwa**, dopóki nie naprawiono ramki fokusu. Dodając cokolwiek z tekstem, **odbierz
+to scenom danymi**, nie flagą.
 
 Co ze slidera zostaje: **D-033 krok 2 (kafel żywy)** i **D-030** — przeczytać przed kodem;
 ikony na kaflach (Icon Theme Spec + SVG + cache z limitem — nowa zależność, więc wpis
-do rejestru **przed** kodem), nazwa karty w nagłówku, ikony funkcyjne w nagłówku karty,
+do rejestru **przed** kodem), ikony funkcyjne w nagłówku karty, `[+] Nowa karta`,
 resize przeciąganiem krawędzi, tryb edycji. **D-008 i D-009** realizuj, zaznaczając jawnie,
 że bierzesz rekomendację z rejestru.
 
