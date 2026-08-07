@@ -30,7 +30,9 @@
 //! in this module tempts anyone to make touch a renamed pointer (D-020).
 
 use crate::geometry::Point;
-use crate::shell::{bottom_bar_layout, card_columns, layout_tiles, top_bar_layout, Zones};
+use crate::shell::{
+    bottom_bar_layout, card_columns, card_delete, layout_tiles, top_bar_layout, Zones,
+};
 use crate::tab::TabStrip;
 use crate::theme::Metrics;
 use crate::window::{Placed, WindowId};
@@ -103,6 +105,10 @@ impl Keysym {
     pub const F: Self = Self(0x066);
     /// Lower-case `n`.
     pub const N: Self = Self(0x06e);
+    /// Lower-case `e`.
+    pub const E: Self = Self(0x065);
+    /// Lower-case `z`.
+    pub const Z: Self = Self(0x07a);
 }
 
 /// Something the shell does in answer to a key combination.
@@ -143,6 +149,19 @@ pub enum Action {
     /// where there is nothing — an empty strip, which is a real state since the
     /// slot became a column of it.
     NewCard,
+    /// Enter or leave edit mode — the state in which the strip is being changed
+    /// rather than used (D-048).
+    ///
+    /// One binding for both directions, because the shell owns only `Super`
+    /// combinations (D-041): a bare `Escape` would be a key taken from every
+    /// application, and a mode with no way out is worse than no mode.
+    ToggleEditMode,
+    /// Take back the last card deletion (D-048).
+    ///
+    /// This is what makes "deletion does not ask" an answer rather than a
+    /// shrug. Bound now, with the buffer, so the decision is true of the shell
+    /// and not only of the register.
+    UndoCardRemoval,
 }
 
 /// A key with its modifiers.
@@ -210,6 +229,12 @@ impl Default for Keymap {
         // position — the same reasoning that makes `Super+Q` survive a Polish
         // layout.
         map.bind(Binding::new(Keysym::N, Mods::LOGO), Action::NewCard);
+        // D-048. `e` for edit and `z` for the undo every application spells the
+        // same way — the keyboard road into the mode, taken first because it
+        // needs no timer and can be tested without a screen. The touch road is
+        // the long press D-020 already lists, and it comes separately.
+        map.bind(Binding::new(Keysym::E, Mods::LOGO), Action::ToggleEditMode);
+        map.bind(Binding::new(Keysym::Z, Mods::LOGO), Action::UndoCardRemoval);
         map
     }
 }
@@ -274,6 +299,15 @@ pub enum Hit {
         card: usize,
         tile: usize,
     },
+    /// The delete button in a card's header, by the card's index in the strip
+    /// (D-048). Only ever produced in edit mode — outside it the button is not
+    /// drawn, and what is not drawn cannot be hit.
+    ///
+    /// Like [`Hit::NewCard`], **not** something [`Hit::card`] answers with: a
+    /// press here removes a card rather than activating one, and a caller
+    /// reaching for `card()` first would activate it instead. The index is in
+    /// the variant, so no caller has to go looking for it anyway.
+    DeleteCard(usize),
     /// The `[+] Nowa karta` slot at the end of the strip (`gostos.md` §B).
     ///
     /// Deliberately **not** a card index: it is the last column of the strip and
@@ -385,6 +419,12 @@ pub fn hit_test(
             continue;
         }
         let index = layout.first + n;
+        // Edit mode first, because the button sits in the header and the header
+        // would otherwise answer `Card` — the mode is the only thing that puts
+        // it there, so asking outside the mode would name a button nobody drew.
+        if tabs.is_editing() && card_delete(*card, metrics).is_some_and(|b| b.contains(point)) {
+            return Hit::DeleteCard(index);
+        }
         let items = tabs.iter().nth(index).map_or(0, |t| t.items.len());
         for (t, tile) in layout_tiles(*card, metrics, items).iter().enumerate() {
             if tile.contains(point) {
@@ -852,6 +892,74 @@ mod tests {
         // And the gap before it belongs to neither.
         let p = Point::new(slot.x() - 1, slot.y() + 20);
         assert_eq!(hit_test(&z, &[], 0, &tabs, &m, p), Hit::Desktop);
+    }
+
+    #[test]
+    fn the_delete_button_exists_only_in_edit_mode() {
+        // The whole of D-048's first decision, as a test: outside the mode there
+        // is no destructive control anywhere near the card's name, so the header
+        // answers `Card` at every point of it.
+        let (z, m) = (monitor(), Metrics::default());
+        let mut tabs = strip(3, 0);
+        let card = card_columns(z.apps, &m, tabs.len(), tabs.active_index()).cards[1];
+        let button = crate::shell::card_delete(card, &m).expect("room for a button");
+        let p = Point::new(button.x() + button.w() / 2, button.y() + button.h() / 2);
+
+        assert_eq!(hit_test(&z, &[], 0, &tabs, &m, p), Hit::Card(1));
+        tabs.set_editing(true);
+        assert_eq!(hit_test(&z, &[], 0, &tabs, &m, p), Hit::DeleteCard(1));
+    }
+
+    #[test]
+    fn deleting_is_never_what_activating_answers() {
+        // The trap this closes: the compositor's press handler reaches for
+        // `hit.card()` to decide which card a press belongs to. If the delete
+        // button answered that question, the press would activate the card it
+        // was meant to remove — and both readings look right in review.
+        let (z, m) = (monitor(), Metrics::default());
+        let mut tabs = strip(3, 0);
+        tabs.set_editing(true);
+        let card = card_columns(z.apps, &m, tabs.len(), tabs.active_index()).cards[2];
+        let button = crate::shell::card_delete(card, &m).expect("room for a button");
+        for (dx, dy) in [
+            (1, 1),
+            (button.w() / 2, button.h() / 2),
+            (button.w() - 1, 4),
+        ] {
+            let hit = hit_test(
+                &z,
+                &[],
+                0,
+                &tabs,
+                &m,
+                Point::new(button.x() + dx, button.y() + dy),
+            );
+            assert_eq!(hit, Hit::DeleteCard(2), "at {dx},{dy}");
+            assert_eq!(hit.card(), None, "at {dx},{dy}");
+        }
+        // Beside the button the header is still the card's, so edit mode does
+        // not turn the rest of it into dead space.
+        let beside = Point::new(button.x() - 2, button.y() + button.h() / 2);
+        assert_eq!(hit_test(&z, &[], 0, &tabs, &m, beside), Hit::Card(2));
+    }
+
+    #[test]
+    fn the_mode_and_the_undo_have_bindings_and_they_carry_super() {
+        let map = Keymap::default();
+        assert_eq!(
+            map.action(Keysym::E, Mods::LOGO),
+            Some(Action::ToggleEditMode)
+        );
+        assert_eq!(
+            map.action(Keysym::Z, Mods::LOGO),
+            Some(Action::UndoCardRemoval)
+        );
+        // `Ctrl+Z` belongs to whatever application is listening for it, and this
+        // is the assertion that keeps it there. An undo the shell ate would be
+        // the worst possible key to take by accident.
+        assert_eq!(map.action(Keysym::Z, Mods::CTRL), None);
+        assert_eq!(map.action(Keysym::Z, Mods::NONE), None);
+        assert_eq!(map.action(Keysym::E, Mods::NONE), None);
     }
 
     #[test]

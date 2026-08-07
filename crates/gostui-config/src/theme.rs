@@ -115,6 +115,7 @@ pub struct PaletteFile {
     pub text: Option<String>,
     pub text_dim: Option<String>,
     pub focus_ring: Option<String>,
+    pub danger: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -211,6 +212,7 @@ impl ThemeFile {
                 bp.focus_ring,
                 &mut problems,
             ),
+            danger: colour("palette.danger", &p.danger, bp.danger, &mut problems),
         };
 
         let m = &self.metrics;
@@ -274,6 +276,7 @@ impl ThemeFile {
                 text: Some(p.text.to_hex()),
                 text_dim: Some(p.text_dim.to_hex()),
                 focus_ring: Some(p.focus_ring.to_hex()),
+                danger: Some(p.danger.to_hex()),
             },
             metrics: MetricsFile {
                 top_bar: Some(m.top_bar),

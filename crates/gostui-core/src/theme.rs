@@ -109,6 +109,13 @@ pub struct Palette {
     /// Ring around the focused element. Separate from `accent` because focus
     /// must stay visible in a theme that makes the accent quiet.
     pub focus_ring: Rgba,
+    /// A control that destroys something: today the delete button edit mode puts
+    /// in a card's header (D-048).
+    ///
+    /// Its own colour rather than a reused accent, because the accents are brand
+    /// colours a theme is free to make quiet, and a delete button that blends
+    /// into the header it sits in is the accident the mode exists to prevent.
+    pub danger: Rgba,
 }
 
 impl Default for Palette {
@@ -127,6 +134,7 @@ impl Default for Palette {
             text: Rgba::rgb(0xe6, 0xed, 0xf5),
             text_dim: Rgba::rgb(0x8d, 0xa2, 0xba),
             focus_ring: Rgba::rgb(0x22, 0xc8, 0xe8),
+            danger: Rgba::rgb(0xd8, 0x45, 0x4f),
         }
     }
 }
