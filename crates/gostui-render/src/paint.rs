@@ -17,7 +17,8 @@ use crate::text::{Align, Primitive, SurfaceSlot, TextRenderer, TextRun};
 use crate::{Canvas, Rgba};
 use gostui_core::geometry::Rect;
 use gostui_core::shell::{
-    card_columns, card_header, card_title, layout_tiles, plus_mark, tile_face, Zones,
+    card_columns, card_delete, card_header, card_title, layout_tiles, minus_mark, plus_mark,
+    tile_face, Zones,
 };
 use gostui_core::tab::TabStrip;
 use gostui_core::theme::{Fonts, Theme};
@@ -258,8 +259,20 @@ fn cards(out: &mut Vec<Primitive>, area: Rect, tabs: &TabStrip, theme: &Theme) {
         // empty bar over one reads as a heading that failed to load.
         let tab = tabs.iter().nth(index);
         push(out, card_header(*card, m), p.chip);
+        // Edit mode puts a delete button at the right end of the header, and the
+        // name gives up that much room — a name running under the button would
+        // be a header that looks broken on long names only (D-048).
+        let editing = tabs.is_editing();
+        if editing {
+            if let Some(button) = card_delete(*card, m) {
+                push(out, button, p.danger);
+                if let Some(bar) = minus_mark(button) {
+                    push(out, bar, p.text);
+                }
+            }
+        }
         if let (Some(area), Some(t)) = (
-            card_title(*card, m, Fonts::line_height(theme.fonts.size_card)),
+            card_title(*card, m, Fonts::line_height(theme.fonts.size_card), editing),
             tab,
         ) {
             push_text(
@@ -458,6 +471,93 @@ mod tests {
             .expect("the focus ring")
             .0;
         assert!(ring > header, "ring at {ring}, header at {header}");
+    }
+
+    /// The same card as [`card_with_items`], with the strip in edit mode.
+    fn card_in_edit_mode(items: usize) -> (Vec<Primitive>, Rect, Theme) {
+        let mut tabs = TabStrip::new();
+        let id = tabs.add("Pliki");
+        let tab = tabs.get_mut(id).expect("just added");
+        for i in 0..items {
+            tab.items.push(gostui_core::tab::LauncherItem::new(
+                format!("a{i}"),
+                "Nazwa",
+            ));
+        }
+        tabs.set_editing(true);
+        let theme = theme_fixture();
+        let z = zones(Rect::new(0, 0, 1920, 1080), BarHeights::default());
+        let view = ShellView {
+            zones: z,
+            tabs: &tabs,
+            windows: &[],
+            focused_window: None,
+            clock: None,
+            surfaces: &[],
+        };
+        let card = card_columns(z.apps, &theme.metrics, 1, 0).cards[0];
+        (display_list(&view, &theme), card, theme)
+    }
+
+    #[test]
+    fn edit_mode_draws_the_delete_button_where_the_hit_test_looks_for_it() {
+        // The rule the whole crate follows, applied to the one control that
+        // destroys something: the painter fills a rectangle core handed over,
+        // and `hit_test` reads the same function. A button drawn anywhere else
+        // would delete a card the user was not pointing at.
+        let (list, card, theme) = card_in_edit_mode(4);
+        let button = gostui_core::shell::card_delete(card, &theme.metrics).expect("a button");
+        let fills = crate::text::only_fills(&list);
+        assert!(
+            fills
+                .iter()
+                .any(|f| f.rect == button && f.colour == theme.palette.danger),
+            "no delete button at {button:?}"
+        );
+        // The mark is a fill too, so both renderer paths draw it identically and
+        // the golden images keep their property of holding no glyph.
+        let bar = gostui_core::shell::minus_mark(button).expect("a mark");
+        assert!(fills.iter().any(|f| f.rect == bar));
+    }
+
+    #[test]
+    fn the_name_gives_up_the_room_the_button_takes() {
+        // Otherwise a long name runs under the button, which looks like a bug
+        // only on long names — the worst kind, because the card that shows it is
+        // whichever one the user happened to name that way.
+        let (plain, _, _) = card_with_items(0);
+        let (editing, _, _) = card_in_edit_mode(0);
+        let title = |list: &[Primitive]| {
+            list.iter()
+                .find_map(|p| match p {
+                    Primitive::Text(t) => Some(t.area),
+                    _ => None,
+                })
+                .expect("the card's name")
+        };
+        let (before, after) = (title(&plain), title(&editing));
+        assert_eq!(before.x(), after.x(), "the name still starts where it did");
+        assert!(
+            after.right() < before.right(),
+            "the name box did not shrink: {before:?} then {after:?}"
+        );
+    }
+
+    #[test]
+    fn the_mode_leaves_the_cards_and_their_tiles_where_they_were() {
+        // Edit mode adds a control; it does not re-lay-out the strip. If it ever
+        // moved a card, the user would be pressing delete on a column that just
+        // slid under the finger.
+        let (plain, _, theme) = card_with_items(4);
+        let (editing, _, _) = card_in_edit_mode(4);
+        let tiles = |list: &[Primitive]| {
+            crate::text::only_fills(list)
+                .into_iter()
+                .filter(|f| f.colour == theme.palette.tile)
+                .map(|f| f.rect)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(tiles(&plain), tiles(&editing));
     }
 
     #[test]

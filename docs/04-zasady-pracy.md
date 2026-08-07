@@ -43,7 +43,7 @@ protokołu — **każde z tych narzędzi znalazło usterkę w kodzie uznanym za 
 kończącą sesję, osiągalną z dowolnego klienta (D-045).
 
 **Wygląd powłoki jest pilnowany obrazem, nie czyimś okiem (warunek D-010).**
-`crates/gostui-render/tests/golden/*.png` to pięć scen rysowanych ścieżką CPU i porównywanych
+`crates/gostui-render/tests/golden/*.png` to sześć scen rysowanych ścieżką CPU i porównywanych
 co do piksela; zwykłe `cargo test` je uruchamia. **Żadna nie zawiera tekstu**, i utrzymują to
 **trzy** dane sceny, nie jedna: `clock: None`, skróty z pustą nazwą **oraz** karty z pustą nazwą
 (powłoka rysuje już podpis na kaflu i nazwę w nagłówku karty). Wszystkie trzy są danymi, nie
@@ -195,6 +195,25 @@ karta bierze fokus, nie mogą zależeć od tego, którą ręką ją zrobiono. Ta
 i to nie jest ozdobnik: klik w gniazdo nie zostawiał wcześniej żadnego śladu, więc z logu sesji
 nie dało się odpowiedzieć na pytanie „czy karta w ogóle powstała".
 
+**Kartę kasuje się w trybie edycji, a tryb ma wejście z klawiatury (D-048, 2026-08-07).**
+`Super+E` wchodzi i wychodzi — jedno wiązanie w obie strony, bo powłoka bierze wyłącznie `Super`
+(D-041), więc gołe `Escape` nie jest nasze do wzięcia. W trybie każda karta dostaje w nagłówku
+kwadratowy przycisk `[−]` przy prawej krawędzi, a nazwa oddaje mu dokładnie tyle miejsca, ile on
+zajmuje. **Minus, nie krzyżyk, i to nie jest wybór estetyczny:** lista wyświetlania zna wyłącznie
+prostokąty osiowe, więc ukośnik byłby nowym prymitywem, za który muszą odpowiedzieć obie ścieżki
+renderera. Minus mówi zresztą prawdę — `[+]` dokłada kolumnę, `[−]` ją zabiera.
+**Kasowanie nie pyta i nie ma wyjątku dla karty pełnej**, bo reguła z wyjątkiem to dwie reguły;
+zamiast pytania jest `Super+Z`, które przywraca **pozycję, zawartość i przypięcie** oraz aktywuje
+przywróconą kartę. Bufor ma **jeden poziom** (D-039: stos bez limitu to wyciek w powłoce
+chodzącej tygodniami). Stan trybu siedzi w `TabStrip`, nie w kompozytorze — `paint` i `hit_test`
+już dostają pasek, więc jedno źródło prawdy dociera do obu.
+**`Hit::DeleteCard` odpowiada `None` na `Hit::card`**, dokładnie jak gniazdo `[+]`: inaczej
+pierwszy `if let Some(i) = hit.card()` w kompozytorze **aktywowałby** kartę, którą kliknięto,
+żeby ją skasować — i obie wersje wyglądałyby w recenzji poprawnie.
+**Czego nie ma:** gestu długiego przytrzymania (wymaga zegara w calloop i ścieżki dotyku, której
+ta stacja nie uruchomi — weszłaby jako kod bez ani jednego przebiegu) ani zmiany kolejności kart,
+czyli reszty tego, po co tryb edycji istnieje.
+
 **Złote obrazy nadal nie zawierają ani jednego glifu** i utrzymują to **trzy** dane, nie jedna:
 `clock: None`, skróty z pustą nazwą **oraz** karty z pustą nazwą (sceny trzymają *liczbę* kart,
 nie ich nazwy). To są dane sceny, nie przełącznik zmieniający rysowanie — paski podpisu
@@ -206,7 +225,8 @@ to scenom danymi**, nie flagą.
 Co ze slidera zostaje: **D-033 krok 2 (kafel żywy)** i **D-030** — przeczytać przed kodem;
 ikony na kaflach (Icon Theme Spec + SVG + cache z limitem — nowa zależność, więc wpis
 do rejestru **przed** kodem), ikony funkcyjne w nagłówku karty,
-resize przeciąganiem krawędzi, **tryb edycji wraz z kasowaniem karty (D-048)**. **D-008 i D-009** realizuj, zaznaczając jawnie,
+resize przeciąganiem krawędzi, **zmiana kolejności kart i dotykowe wejście w tryb edycji**
+(reszta D-048). **D-008 i D-009** realizuj, zaznaczając jawnie,
 że bierzesz rekomendację z rejestru.
 
 **Trzy rzeczy zostały świadomie niezrobione i nie są zapomniane:** `linux-dmabuf` nie jest
@@ -469,7 +489,7 @@ do zagnieżdżonego okna w ogóle, więc `Super+Tab` wygląda na zepsuty, a `Sup
 ekranu otwiera menedżer plików. Na gołym metalu (M4) problem nie istnieje. Do pracy w oknie:
 
 ```bash
-scripts/xfce-zwolnij-skroty.sh              # zwalnia sześć kolidujących skrótów
+scripts/xfce-zwolnij-skroty.sh              # zwalnia siedem kolidujących skrótów
 scripts/xfce-zwolnij-skroty.sh --przywroc   # oddaje dokładnie to, co było
 ```
 

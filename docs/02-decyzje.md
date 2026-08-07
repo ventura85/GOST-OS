@@ -1365,8 +1365,9 @@ offset w jednostkach jest tym, czego wymaga podążanie 1:1), D-044, D-046
 ---
 
 ## D-048 — Kasowanie karty: w trybie edycji, bez pytania, z jednym miejscem cofania
-**Status:** ✅ **PRZYJĘTA** (2026-08-05) w części semantyki; **wejście w tryb edycji OTWARTE**
-(rekomendacja niżej). Niewdrożona.
+**Status:** ✅ **PRZYJĘTA** (2026-08-05) w części semantyki; **wejście w tryb edycji domknięte
+2026-08-07** (patrz „Domknięcie" na końcu wpisu). **Wdrożona** 2026-08-07 — bez gestu dotykowego,
+który jest osobną pracą.
 
 **Kontekst:** `gostos.md` §B **nie mówi o kasowaniu kart ani słowem** — wymienia tryb edycji
 (zmiana kolejności), przypinanie i `[+] Nowa karta`. To jest luka w specyfikacji, nie
@@ -1409,7 +1410,7 @@ przypadek brzegowy do obsłużenia. Pusty pasek jest pełnoprawnym stanem od chw
 `[+] Nowa karta` stało się kolumną paska — bez niego skasowanie ostatniej karty dawałoby czarną
 pustkę bez wyjścia.
 
-**Otwarte, do rozstrzygnięcia razem z implementacją — jak wchodzi się w tryb edycji.**
+**Było otwarte, do rozstrzygnięcia razem z implementacją — jak wchodzi się w tryb edycji.**
 Specyfikacja milczy, a bez wejścia nie ma czego przetestować, więc to nie jest praca na potem.
 Rekomendacja: **długie przytrzymanie karty** jako droga dotykowa (D-020 wymienia je wśród trzech
 gestów bezpośrednich, więc nie wprowadza nowego słownika) plus skrót jako droga klawiaturowa.
@@ -1418,7 +1419,39 @@ Mysz używa tego samego przytrzymania, więc prawy przycisk nie musi jeszcze nic
 mechanizmu co zegar w pasku, a więc bez łamania zera renderowania w spoczynku, bo timer chodzi
 wyłącznie z wciśniętym palcem.
 
+### Domknięcie (2026-08-07) — wejście, znak i cofanie
+
+**Wejście: najpierw klawiatura, gest osobno.** `Super+E` wchodzi i wychodzi (jedno wiązanie
+w obie strony — powłoka bierze wyłącznie `Super`, więc gołe `Escape` nie jest nasze do wzięcia,
+D-041). Rekomendowane długie przytrzymanie **nie zostało odrzucone** — zostało odłożone, i to
+z rachunku, a nie z ostrożności: wymaga zegara w calloop i ścieżki dotyku, której na tej stacji
+**nie ma czym uruchomić**, więc weszłoby jako kod bez ani jednego przebiegu. Skrót testuje się
+bez ekranu. W sesji XFCE `Super+E` trzyma menedżer plików, więc doszło do
+`scripts/xfce-zwolnij-skroty.sh` (siódma pozycja).
+
+**Znak: `[−]`, nie `[×]`.** To nie jest wybór estetyczny, tylko konsekwencja listy wyświetlania:
+zna ona wyłącznie **prostokąty osiowe**, a ukośnik byłby nowym prymitywem, za który musiałyby
+odpowiedzieć obie ścieżki renderera. Minus mówi zresztą prawdę i tworzy parę: `[+]` na końcu
+paska dokłada kolumnę, `[−]` na karcie ją zabiera. Przycisk jest kwadratem wysokości nagłówka
+(48 jednostek = cel dotykowy, D-020), przy **prawej** krawędzi — lewa zostaje do chwytania przy
+przyszłej zmianie kolejności, a nazwa oddaje przyciskowi dokładnie tyle miejsca, ile ten zajmuje.
+Ma własny kolor w motywie (`danger`), bo akcenty są kolorami marki, które motyw może wyciszyć,
+a przycisk kasujący wtapiający się w nagłówek jest dokładnie tym wypadkiem, któremu ten tryb
+zapobiega (D-032, D-044).
+
+**Cofanie weszło razem z kasowaniem, nie po nim.** Decyzja 2 mówi „nie pyta, **ale jest
+odwracalne**" — kasowanie wypuszczone bez osiągalnego cofania robi z niej połowę decyzji. Bufor
+i tak miał wejść (decyzja 3), więc podpięcie `Super+Z` kosztowało jedno wiązanie. Cofnięcie
+przywraca **pozycję, zawartość i przypięcie** oraz aktywuje przywróconą kartę; bufor ma jeden
+poziom, bo stos to funkcja historii, której nikt nie zamawiał, a stos bez limitu jest wyciekiem
+w powłoce chodzącej tygodniami (D-039).
+
+**Czego to domknięcie nie robi:** nie ma gestu dotykowego, nie ma zmiany kolejności (reszta tego,
+po co tryb edycji istnieje) i nie ma przypinania z UI. Kasowanie nie pyta i **nie ma wyjątku dla
+karty pełnej** — tak, jak zdecydowano wyżej.
+
 **Odniesienie:** `gostos.md` §B (luka), D-008, D-009, D-020, D-025 (dlaczego *nie* dialog),
+D-032 (kolor jako dana), D-039 (bufor bez limitu = wyciek),
 D-041 (skrót wymaga wpisu w tablicy), D-044, D-046, D-047
 
 ---
@@ -1459,6 +1492,10 @@ D-041 (skrót wymaga wpisu w tablicy), D-044, D-046, D-047
 | D-042 | Pełny ekran | Zakrywa oba paski; wyjście `Super+F` należy do powłoki, nie do klienta |
 | D-043 | Dekoracje | Bez pasków tytułu; sama ramka fokusu, tożsamość okna na dolnym pasku |
 | D-044 | Kierunek wizualny | Final Cartridge III / stary Windows: płaskie prostokąty, ostre krawędzie, gęstość |
+| D-045 | Odporność | Klient ma prawo wysłać bzdurę; mierzy to `gostui-fuzz-client`, nie deklaracja |
+| D-046 | Karty | Karta to kolumna stałej szerokości; ile ich widać, wynika z szerokości wyjścia |
+| D-047 | Pasek kart | Wyśrodkowany na aktywnej karcie, zaciśnięty na końcach; prostokąt zawsze pełny |
+| D-048 | Kasowanie karty | W trybie edycji (`Super+E`), bez pytania, odwracalne przez `Super+Z` |
 
 **Rekomendacje przyjmowane domyślnie** (bez sensownej alternatywy, do zakwestionowania w każdej chwili):
 D-006 greeter poza Core, D-008 karta = siatka skrótów,

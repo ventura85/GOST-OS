@@ -222,6 +222,23 @@ impl State {
             Action::ActivateNextCard => self.slide(true),
             Action::ActivatePreviousCard => self.slide(false),
             Action::NewCard => self.new_card(),
+            // D-048. The picture changes either way round — the headers grow a
+            // button or lose one — so this always costs a frame, unlike the
+            // slider at the end of the strip.
+            Action::ToggleEditMode => {
+                let on = !self.tabs.is_editing();
+                self.tabs.set_editing(on);
+                tracing::info!(edit = on, "card edit mode");
+                self.request_redraw(Cause::Input);
+            }
+            // Nothing to take back costs nothing at all: no state change, no
+            // frame, so holding the shortcut down is not a render loop (D-027).
+            Action::UndoCardRemoval => {
+                if self.tabs.restore_removed() {
+                    tracing::info!(index = self.tabs.active_index(), "card restored");
+                    self.request_redraw(Cause::Input);
+                }
+            }
         }
     }
 
@@ -485,6 +502,22 @@ impl State {
                 };
                 if self.windows.activate(id) {
                     self.focus_changed();
+                }
+            }
+            // Before the card guard below, and that order is the point: the
+            // button sits inside a card's header, so a guard reaching for
+            // `hit.card()` first would activate the card the press was meant to
+            // delete. `Hit::card` answers `None` here so the mistake cannot be
+            // made silently, and this arm keeps the two apart anyway.
+            Hit::DeleteCard(i) => {
+                let Some(id) = self.tabs.iter().nth(i).map(|t| t.id) else {
+                    return;
+                };
+                // No confirmation, by decision (D-048): entering the mode was
+                // already the deliberate act, and the way back is `Super+Z`.
+                if self.tabs.remove(id) {
+                    tracing::info!(index = i, "card deleted");
+                    self.request_redraw(Cause::Input);
                 }
             }
             // Anywhere inside a card, tile or not — `Hit::card` is where that
