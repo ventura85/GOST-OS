@@ -221,6 +221,31 @@ impl State {
             // to them.
             Action::ActivateNextCard => self.slide(true),
             Action::ActivatePreviousCard => self.slide(false),
+            Action::NewCard => self.new_card(),
+        }
+    }
+
+    /// Make a card, activate it, and say so.
+    ///
+    /// One function for both ways in — the `[+]` slot and `Super+N` — because
+    /// they are the same decision and not two similar ones: what the card is
+    /// called and whether it takes focus must not depend on which hand made it.
+    ///
+    /// The new card takes focus, because making one and then having to go find
+    /// it is two actions where the user asked for one. Named rather than left
+    /// blank: there is no way to rename a card yet, so an empty name would be
+    /// permanent — and an empty header is the thing the header's name was added
+    /// to stop.
+    ///
+    /// The log line is not decoration. Pressing the slot used to leave no trace
+    /// at all, so a session log could show every shortcut and still not answer
+    /// "did a card get made?" — the one question the pointer path existed to
+    /// answer.
+    fn new_card(&mut self) {
+        let id = self.tabs.add("Nowa karta");
+        tracing::info!(index = self.tabs.len() - 1, "new card");
+        if self.tabs.set_active(id) {
+            self.request_redraw(Cause::Input);
         }
     }
 
@@ -479,17 +504,7 @@ impl State {
                     self.request_redraw(Cause::Input);
                 }
             }
-            Hit::NewCard => {
-                // The new card takes focus, because making one and then having
-                // to go find it is two actions where the user asked for one.
-                // Named rather than left blank: there is no way to rename a card
-                // yet, so an empty name would be permanent — and an empty header
-                // is the thing the header's name was added to stop.
-                let id = self.tabs.add("Nowa karta");
-                if self.tabs.set_active(id) {
-                    self.request_redraw(Cause::Input);
-                }
-            }
+            Hit::NewCard => self.new_card(),
             // The Start Menu (M3), the empty space beside the cards, and the
             // empty parts of both bars. Consumed, so a press on system space
             // never reaches an application; nothing to do about it yet.

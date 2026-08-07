@@ -101,6 +101,8 @@ impl Keysym {
     pub const Q: Self = Self(0x071);
     /// Lower-case `f`.
     pub const F: Self = Self(0x066);
+    /// Lower-case `n`.
+    pub const N: Self = Self(0x06e);
 }
 
 /// Something the shell does in answer to a key combination.
@@ -132,6 +134,15 @@ pub enum Action {
     /// trust, and finding out requires looking rather than pressing.
     ActivateNextCard,
     ActivatePreviousCard,
+    /// Make a card and activate it — the keyboard's way to the `[+] Nowa karta`
+    /// slot, which until now could only be pressed or tapped.
+    ///
+    /// The one action here that needs nothing to exist first. Every other one
+    /// asks about a focused window or a card to move away from, and answers by
+    /// doing nothing when there is none; this one is the way *out* of the state
+    /// where there is nothing — an empty strip, which is a real state since the
+    /// slot became a column of it.
+    NewCard,
 }
 
 /// A key with its modifiers.
@@ -194,6 +205,11 @@ impl Default for Keymap {
             Binding::new(Keysym::LEFT, Mods::LOGO),
             Action::ActivatePreviousCard,
         );
+        // `n` for new, and free of the layout question the arrows raise: it is a
+        // letter key, so xkb hands over whatever the user's own layout calls that
+        // position — the same reasoning that makes `Super+Q` survive a Polish
+        // layout.
+        map.bind(Binding::new(Keysym::N, Mods::LOGO), Action::NewCard);
         map
     }
 }
@@ -654,6 +670,66 @@ mod tests {
         assert_eq!(map.action(Keysym::RIGHT, Mods::NONE), None);
         assert_eq!(map.action(Keysym::LEFT, Mods::NONE), None);
         assert_eq!(map.action(Keysym::LEFT, Mods::LOGO | Mods::SHIFT), None);
+    }
+
+    #[test]
+    fn making_a_card_has_a_binding_and_it_is_not_a_bare_letter() {
+        let map = Keymap::default();
+        assert_eq!(map.action(Keysym::N, Mods::LOGO), Some(Action::NewCard));
+        // The gap this closed: the `[+]` slot was reachable by pointer and touch
+        // only. What must not close it is a plain `n`, which is a letter every
+        // application is entitled to receive.
+        assert_eq!(map.action(Keysym::N, Mods::NONE), None);
+        assert_eq!(map.action(Keysym::N, Mods::LOGO | Mods::SHIFT), None);
+        assert_eq!(map.action(Keysym::N, Mods::CTRL), None);
+    }
+
+    #[test]
+    fn a_card_made_from_the_keyboard_is_on_screen_and_whole() {
+        // What the shortcut is for is a card the user can then look at. The new
+        // one goes to the end of the strip, so on a full strip this is exactly
+        // the case the clamp has to answer: the strip is already scrolled to its
+        // end, and one more column means scrolling one further rather than
+        // leaving the newest card as the sliver against the right edge.
+        let m = Metrics::default();
+        for (w, h) in [(1920, 1080), (780, 360), (360, 780)] {
+            let apps = zones(Rect::new(0, 0, w, h), BarHeights::default()).apps;
+            let whole = m.card_width.min(apps.w());
+            let mut tabs = strip(12, 0);
+            let last = tabs.iter().last().expect("twelve cards").id;
+            assert!(tabs.set_active(last), "start at the end of the strip");
+
+            let made = tabs.add("Nowa karta");
+            assert!(tabs.set_active(made));
+            assert_eq!(tabs.active_index(), 12, "the new card is the last one");
+
+            let l = card_columns(apps, &m, tabs.len(), tabs.active_index());
+            let card = l
+                .cards
+                .get(tabs.active_index() - l.first)
+                .unwrap_or_else(|| panic!("the new card is off screen on {w}×{h}"));
+            assert_eq!(card.w(), whole, "the new card is clipped on {w}×{h}");
+        }
+    }
+
+    #[test]
+    fn a_card_can_be_made_when_there_are_none() {
+        // The state the slot made real: an empty strip. The shortcut has to work
+        // there above all — it is the way out — and every other action in the
+        // map answers "nothing to do" when its subject is missing.
+        let mut tabs = TabStrip::new();
+        assert!(tabs.is_empty());
+        let made = tabs.add("Nowa karta");
+        assert!(tabs.set_active(made));
+        assert_eq!(tabs.active_index(), 0);
+
+        let (z, m) = (monitor(), Metrics::default());
+        let l = card_columns(z.apps, &m, tabs.len(), tabs.active_index());
+        assert_eq!(l.cards.len(), 1);
+        // And it is a card that can be pressed, not just one that was drawn.
+        let card = l.cards[0];
+        let p = Point::new(card.x() + card.w() / 2, card.bottom() - 2);
+        assert_eq!(hit_test(&z, &[], 0, &tabs, &m, p), Hit::Card(0));
     }
 
     #[test]
