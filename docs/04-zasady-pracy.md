@@ -186,8 +186,14 @@ kolumny, tam gdzie karta trzyma kafle i gdzie idzie oko (zmierzone przy D-046).
 `Hit::NewCard` **nie jest indeksem karty** i `Hit::card` odpowiada na nie `None` — inaczej
 gniazdo czytałoby się jako karta o numerze `len()`, czyli zakładka, której nie ma.
 
-**Karty nadal nie da się dodać z klawiatury** — gniazdo jest celem klikalnym i dotykowym.
-To jest luka, nie decyzja: skrót wymaga wpisu w tablicy skrótów (D-041), więc ma iść osobno.
+**Kartę robi się też z klawiatury: `Super+N` (2026-08-07).** Litera, nie strzałka — xkb podaje
+symbol **po** zastosowaniu układu, więc na polskim układzie to nadal klawisz oznaczony N,
+dokładnie jak `Super+Q`. W XFCE na tej stacji `Super+N` jest wolne (zajęte są `t`, `e`, `f`,
+`l`, `m`, `p`, `r`, `w`), więc do przetestowania w oknie **nie** trzeba niczego zwalniać.
+**Obie drogi wołają jedną funkcję** (`new_card` w kompozytorze) — nazwa karty i to, że nowa
+karta bierze fokus, nie mogą zależeć od tego, którą ręką ją zrobiono. Ta funkcja **loguje**,
+i to nie jest ozdobnik: klik w gniazdo nie zostawiał wcześniej żadnego śladu, więc z logu sesji
+nie dało się odpowiedzieć na pytanie „czy karta w ogóle powstała".
 
 **Złote obrazy nadal nie zawierają ani jednego glifu** i utrzymują to **trzy** dane, nie jedna:
 `clock: None`, skróty z pustą nazwą **oraz** karty z pustą nazwą (sceny trzymają *liczbę* kart,
@@ -199,7 +205,7 @@ to scenom danymi**, nie flagą.
 
 Co ze slidera zostaje: **D-033 krok 2 (kafel żywy)** i **D-030** — przeczytać przed kodem;
 ikony na kaflach (Icon Theme Spec + SVG + cache z limitem — nowa zależność, więc wpis
-do rejestru **przed** kodem), ikony funkcyjne w nagłówku karty, skrót na nową kartę,
+do rejestru **przed** kodem), ikony funkcyjne w nagłówku karty,
 resize przeciąganiem krawędzi, **tryb edycji wraz z kasowaniem karty (D-048)**. **D-008 i D-009** realizuj, zaznaczając jawnie,
 że bierzesz rekomendację z rejestru.
 

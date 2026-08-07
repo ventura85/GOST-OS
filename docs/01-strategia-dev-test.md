@@ -673,9 +673,9 @@ plików XFCE w `menu_start/` pojawia się w menu bez restartu; uruchomienie apli
 (w tym `Terminal=true`); restart kompozytora odtwarza układ kart 1:1; zmiana karty < 16 ms.
 
 **Stan M3 (2026-08-02): zaczęte od brzegów, sedno zablokowane decyzjami.**
-**Odblokowane i w dużej części zrobione (2026-08-05)** — punkty 3–7 niżej. Zostają: ikony
-na kaflach, kafel żywy (D-033 krok 2), ikony funkcyjne w nagłówku, tryb edycji, przypinanie,
-skrót klawiszowy na nową kartę, **tryb edycji z kasowaniem karty (D-048)** i całe Menu Start.
+**Odblokowane i w dużej części zrobione (2026-08-05)** — punkty 3–8 niżej. Zostają: ikony
+na kaflach, kafel żywy (D-033 krok 2), ikony funkcyjne w nagłówku, przypinanie,
+**tryb edycji z kasowaniem karty (D-048)** i całe Menu Start.
 
 Zrobione:
 
@@ -710,7 +710,13 @@ Zrobione:
 7. **`[+] Nowa karta`** (`gostos.md` §B) — **ostatnia kolumna paska**, nie przycisk obok:
    jako kolumna jest `count + 1` i wyśrodkowanie, zacisk oraz `hit_test` obejmują ją bez
    wyjątku. Plus to dwa skrzyżowane prostokąty, nie glif. Pasek bez kart przestał być pustką.
-   Zostaje luka: **dodania karty nie da się wywołać z klawiatury** (wymaga wpisu w D-041).
+8. **`Super+N` robi kartę** (2026-08-07) — luka z punktu 7 zamknięta wpisem w tablicy skrótów
+   (D-041). Obie drogi — gniazdo i skrót — wołają **jedną** funkcję kompozytora, więc nazwa
+   nowej karty i to, że bierze fokus, nie zależą od tego, którą ręką ją zrobiono. Ta funkcja
+   loguje, co zamyka ślepy punkt instrumentacji: klik w gniazdo nie zostawiał wcześniej
+   w logu **żadnego** śladu, więc przebieg pokazywał wszystkie skróty i nie odpowiadał
+   na pytanie, czy karta powstała. `Super+N` jest w XFCE wolne, więc do testu w oknie
+   nie trzeba `scripts/xfce-zwolnij-skroty.sh`.
 
 **Czego nie zaczynać bez rozmowy:** dawniej był to sam slider, przez odstępstwo od `gostos.md` §B
 zapisane w D-031. **Odstępstwo zniknęło, nie zostało wynegocjowane** (2026-08-03): karta jako
