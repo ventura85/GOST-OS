@@ -673,9 +673,9 @@ plików XFCE w `menu_start/` pojawia się w menu bez restartu; uruchomienie apli
 (w tym `Terminal=true`); restart kompozytora odtwarza układ kart 1:1; zmiana karty < 16 ms.
 
 **Stan M3 (2026-08-02): zaczęte od brzegów, sedno zablokowane decyzjami.**
-**Odblokowane i w dużej części zrobione (2026-08-05)** — punkty 3–8 niżej. Zostają: ikony
-na kaflach, kafel żywy (D-033 krok 2), ikony funkcyjne w nagłówku, przypinanie,
-**tryb edycji z kasowaniem karty (D-048)** i całe Menu Start.
+**Odblokowane i w dużej części zrobione (2026-08-05)** — punkty 3–9 niżej. Zostają: ikony
+na kaflach, kafel żywy (D-033 krok 2), ikony funkcyjne w nagłówku, przypinanie, **zmiana
+kolejności kart i dotykowe wejście w tryb edycji** (reszta D-048) oraz całe Menu Start.
 
 Zrobione:
 
@@ -717,6 +717,14 @@ Zrobione:
    w logu **żadnego** śladu, więc przebieg pokazywał wszystkie skróty i nie odpowiadał
    na pytanie, czy karta powstała. `Super+N` jest w XFCE wolne, więc do testu w oknie
    nie trzeba `scripts/xfce-zwolnij-skroty.sh`.
+9. **Tryb edycji i kasowanie karty (D-048)** (2026-08-07) — `Super+E` wchodzi i wychodzi,
+   w nagłówku każdej karty pojawia się przycisk `[−]`, a `Super+Z` cofa ostatnie kasowanie.
+   Minus, nie krzyżyk: lista wyświetlania zna wyłącznie prostokąty osiowe, więc ukośnik byłby
+   nowym prymitywem po obu stronach renderera. Doszła **szósta scena złota**, `tryb-edycji`,
+   i jest to pierwsza scena pokazująca stan powłoki, a nie kształt wyjścia. Cztery stare
+   przeszły **bez błogosławieństwa** — dowód, że tryb wyłączony niczego nie rusza.
+   `Super+E` trzyma w XFCE menedżer plików, więc tutaj `scripts/xfce-zwolnij-skroty.sh`
+   jest potrzebny.
 
 **Czego nie zaczynać bez rozmowy:** dawniej był to sam slider, przez odstępstwo od `gostos.md` §B
 zapisane w D-031. **Odstępstwo zniknęło, nie zostało wynegocjowane** (2026-08-03): karta jako

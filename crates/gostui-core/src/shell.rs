@@ -484,13 +484,22 @@ pub fn card_header(card: Rect, m: &Metrics) -> Rect {
 /// `line` comes from the caller for the same reason it does in [`tile_face`] —
 /// core does not know what a font is (D-016), only that something asked it to
 /// reserve that many units.
-pub fn card_title(card: Rect, m: &Metrics, line: i32) -> Option<Rect> {
+/// `edit` is the strip's mode (D-048): in it the header also carries the delete
+/// button, so the name gets the header minus that square. Passed in rather than
+/// read off a global, because this function answers a question about a rectangle
+/// and the mode is the only part of the answer it cannot see.
+pub fn card_title(card: Rect, m: &Metrics, line: i32, edit: bool) -> Option<Rect> {
     let header = card_header(card, m);
     if line <= 0 || line > header.h() || header.w() <= 0 {
         return None;
     }
+    let taken = if edit {
+        card_delete(card, m).map_or(0, |b| b.w())
+    } else {
+        0
+    };
     let pad = CAPTION_PAD.min(header.w() / 8);
-    let w = header.w() - 2 * pad;
+    let w = header.w() - 2 * pad - taken;
     if w <= 0 {
         return None;
     }
@@ -499,6 +508,59 @@ pub fn card_title(card: Rect, m: &Metrics, line: i32) -> Option<Rect> {
         header.y() + (header.h() - line) / 2,
         w,
         line,
+    ))
+}
+
+/// The delete button in a card's header, or `None` when the header has no room
+/// for one (D-048).
+///
+/// A square the height of the header, at its **right end**. Square because it is
+/// a touch target and D-020 sets the floor at 48 units, which is exactly what
+/// [`Metrics::card_header`] is; at the right end because the other end of the
+/// header is where the eye reads the name from, and because reordering by
+/// dragging the header — the rest of what edit mode is for — needs somewhere to
+/// take hold that is not the button.
+///
+/// Only ever asked for in edit mode. A destructive control kept permanently
+/// beside a card's name is a card deleted by accident on the first day, and that
+/// is the whole reason D-048 put deletion behind a mode.
+///
+/// Full size even on a card hanging off the zone, like everything else about a
+/// card (D-047): the rasteriser cuts the picture, the layout does not lie about
+/// it.
+pub fn card_delete(card: Rect, m: &Metrics) -> Option<Rect> {
+    let header = card_header(card, m);
+    let side = header.h();
+    // Half the header is the limit: past that the button would be most of the
+    // bar and the name would be a word cut to two letters. Better to have no
+    // button on a card that narrow than a header that is all button.
+    if side <= 0 || header.w() < side * 2 {
+        return None;
+    }
+    Some(Rect::new(header.right() - side, header.y(), side, side))
+}
+
+/// The minus on a card's delete button: one bar, or `None` when the button is
+/// too small to hold it whole.
+///
+/// **The plus without its upright**, and the same two reasons as [`plus_mark`]:
+/// a mark made of fills needs no font, no texture and no cache, and the golden
+/// images keep their property of containing no glyph at all.
+///
+/// It is a minus rather than a cross because the display list holds
+/// axis-aligned rectangles and nothing else. A diagonal would be a new primitive
+/// that both renderer paths have to answer for — a real cost, paid here for one
+/// mark. The minus also says the true thing: `[+]` at the end of the strip adds
+/// a column, `[−]` on a card takes one away.
+pub fn minus_mark(button: Rect) -> Option<Rect> {
+    if button.w() < PLUS_SIDE || button.h() < PLUS_BAR {
+        return None;
+    }
+    Some(Rect::new(
+        button.x() + (button.w() - PLUS_SIDE) / 2,
+        button.y() + (button.h() - PLUS_BAR) / 2,
+        PLUS_SIDE,
+        PLUS_BAR,
     ))
 }
 
@@ -1108,7 +1170,7 @@ mod tests {
         assert_eq!((header.x(), header.y()), (card.x(), card.y()));
         assert_eq!((header.w(), header.h()), (card.w(), m.card_header));
 
-        let title = card_title(card, &m, 18).expect("a 48-unit header holds a line");
+        let title = card_title(card, &m, 18, false).expect("a 48-unit header holds a line");
         // Room on both sides, so a name cut by the text stack reads as cut on
         // purpose — the lesson the tile caption already paid for.
         assert!(title.x() > header.x());
@@ -1124,10 +1186,10 @@ mod tests {
         // does not fit goes, because half-height glyphs are not a smaller name.
         let m = Metrics::default();
         let card = card_columns(apps(1920, 1080), &m, 3, 0).cards[0];
-        assert_eq!(card_title(card, &m, m.card_header + 1), None);
-        assert_eq!(card_title(card, &m, 0), None);
+        assert_eq!(card_title(card, &m, m.card_header + 1, false), None);
+        assert_eq!(card_title(card, &m, 0, false), None);
         // A degenerate card answers instead of producing a negative box.
-        assert_eq!(card_title(Rect::new(0, 0, 0, 0), &m, 18), None);
+        assert_eq!(card_title(Rect::new(0, 0, 0, 0), &m, 18, false), None);
     }
 
     #[test]
@@ -1143,8 +1205,8 @@ mod tests {
         assert!(cut.x() < area.x());
         assert_eq!(card_header(cut, &m).w(), card_header(l.cards[1], &m).w());
         let (a, b) = (
-            card_title(cut, &m, 18).expect("cut"),
-            card_title(l.cards[1], &m, 18).expect("whole"),
+            card_title(cut, &m, 18, false).expect("cut"),
+            card_title(l.cards[1], &m, 18, false).expect("whole"),
         );
         assert_eq!((a.w(), a.h()), (b.w(), b.h()));
         assert_eq!(a.x() - cut.x(), b.x() - l.cards[1].x());

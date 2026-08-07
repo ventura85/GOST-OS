@@ -78,6 +78,9 @@ struct Scene {
     /// the tile grid — the largest piece of new geometry in the middle zone —
     /// would have no pixel covering it at all.
     items: usize,
+    /// Whether the strip is in edit mode (D-048), which puts a delete button in
+    /// every card's header.
+    edit: bool,
     windows: &'static [&'static str],
     focused_window: Option<usize>,
 }
@@ -94,6 +97,7 @@ fn scenes() -> Vec<Scene> {
             cards: 3,
             active: 1,
             items: 5,
+            edit: false,
             windows: &["Terminal", "Firefox"],
             focused_window: Some(0),
         },
@@ -109,6 +113,7 @@ fn scenes() -> Vec<Scene> {
             cards: 9,
             active: 8,
             items: 3,
+            edit: false,
             windows: &[],
             focused_window: None,
         },
@@ -122,6 +127,7 @@ fn scenes() -> Vec<Scene> {
             cards: 2,
             active: 0,
             items: 4,
+            edit: false,
             windows: &["Terminal"],
             focused_window: Some(0),
         },
@@ -135,6 +141,7 @@ fn scenes() -> Vec<Scene> {
             cards: 1,
             active: 0,
             items: 2,
+            edit: false,
             windows: &[],
             focused_window: None,
         },
@@ -147,6 +154,24 @@ fn scenes() -> Vec<Scene> {
             cards: 0,
             active: 0,
             items: 0,
+            edit: false,
+            windows: &[],
+            focused_window: None,
+        },
+        // Edit mode (D-048): every card's header carries a delete button, and
+        // the name gives up that much room. Its own scene rather than a change
+        // to an existing one, because the mode has to be told apart from the
+        // shell that is merely being used — and because the button is the only
+        // destructive control the shell draws, which makes "did it move?" a
+        // question worth a picture.
+        Scene {
+            name: "tryb-edycji",
+            size: (1920, 1080),
+            scale: 1,
+            cards: 3,
+            active: 1,
+            items: 5,
+            edit: true,
             windows: &[],
             focused_window: None,
         },
@@ -169,6 +194,7 @@ fn render(scene: &Scene) -> Canvas {
     for _ in 0..scene.active {
         tabs.activate_next();
     }
+    tabs.set_editing(scene.edit);
     let windows: Vec<String> = scene.windows.iter().map(|w| w.to_string()).collect();
     let theme = Theme::default();
 

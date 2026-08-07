@@ -30,6 +30,10 @@ SKROTY=(
   "/xfwm4/custom/<Super>Up"
   "/xfwm4/custom/<Super>Down"
   "/commands/custom/<Super>f"
+  # D-048: tryb edycji kart. XFCE ma tu menedżera plików, więc bez zwolnienia
+  # `Super+E` w oknie zagnieżdżonym otwiera się Thunar i nic do nas nie dociera —
+  # dokładnie ten sam objaw co przy `Super+F`.
+  "/commands/custom/<Super>e"
 )
 
 if ! command -v xfconf-query >/dev/null; then
